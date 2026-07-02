@@ -6,7 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Landing from "./pages/Landing.tsx";
 import UnitPanel from "./pages/UnitPanel.tsx";
 import NotFound from "./pages/NotFound.tsx";
-import { getUnitBySlug } from "@/config/units";
+import { getUnitBySlug, getUnitByHost } from "@/config/units";
 import { UnitProvider } from "@/context/UnitContext";
 
 const queryClient = new QueryClient();
@@ -22,6 +22,20 @@ function UnitRoute() {
   );
 }
 
+// Rota "/": num subdomínio de cliente (macae.dominio, agendamento-macae.vercel.app)
+// abre direto o painel da unidade; no host raiz mostra a landing com todas.
+function RootRoute() {
+  const unit = getUnitByHost(typeof window !== "undefined" ? window.location.hostname : undefined);
+  if (unit) {
+    return (
+      <UnitProvider unit={unit}>
+        <UnitPanel />
+      </UnitProvider>
+    );
+  }
+  return <Landing />;
+}
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -29,7 +43,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Landing />} />
+          <Route path="/" element={<RootRoute />} />
           <Route path="/:slug" element={<UnitRoute />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

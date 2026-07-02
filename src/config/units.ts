@@ -51,3 +51,24 @@ export function getUnitBySlug(slug: string | undefined): Unit | undefined {
   if (!slug) return undefined;
   return UNITS.find((u) => u.slug === slug);
 }
+
+// Resolve uma unidade pelo hostname (subdomínio por cliente). Suporta:
+//   - <slug>.<dominio>            ex: macae.agenda.aios.com
+//   - agendamento-<slug>.vercel.app  (aliases .vercel.app por unidade)
+// Retorna undefined nos hosts "raiz" (apex, www, o domínio compartilhado,
+// localhost) — nesses casos a rota "/" mostra a landing com todas as unidades.
+export function getUnitByHost(hostname: string | undefined): Unit | undefined {
+  if (!hostname) return undefined;
+  const host = hostname.toLowerCase();
+  if (
+    host === "agendamentos-aios.vercel.app" ||
+    host === "localhost" ||
+    host === "127.0.0.1" ||
+    host.split(".")[0] === "www"
+  ) {
+    return undefined;
+  }
+  const first = host.split(".")[0];
+  const candidate = first.startsWith("agendamento-") ? first.slice("agendamento-".length) : first;
+  return getUnitBySlug(candidate);
+}

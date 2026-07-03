@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useParams } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes, useParams } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -23,7 +23,8 @@ function UnitRoute() {
 }
 
 // Rota "/": num subdomínio de cliente (macae.dominio, agendamento-macae.vercel.app)
-// abre direto o painel da unidade; no host raiz mostra a landing com todas.
+// abre direto o painel da unidade. No host raiz redireciona para /admin, que é o
+// único ponto de acesso à lista de todas as unidades (não exposta aos clientes).
 function RootRoute() {
   const unit = getUnitByHost(typeof window !== "undefined" ? window.location.hostname : undefined);
   if (unit) {
@@ -33,7 +34,7 @@ function RootRoute() {
       </UnitProvider>
     );
   }
-  return <Landing />;
+  return <Navigate to="/admin" replace />;
 }
 
 const App = () => (
@@ -44,6 +45,7 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<RootRoute />} />
+          <Route path="/admin" element={<Landing />} />
           <Route path="/:slug" element={<UnitRoute />} />
           <Route path="*" element={<NotFound />} />
         </Routes>

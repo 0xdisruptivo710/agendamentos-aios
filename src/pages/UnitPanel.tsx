@@ -1,8 +1,7 @@
 import { useMemo, useState } from "react";
 import { addDays, addMonths, addWeeks, isToday, subDays, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
-import { AlertCircle, BarChart3, CalendarDays, CheckCircle, Loader2, Users, ArrowLeft } from "lucide-react";
-import { Link } from "react-router-dom";
+import { AlertCircle, BarChart3, CalendarDays, CheckCircle, Loader2, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { DayView } from "@/components/calendar/DayView";
@@ -13,7 +12,6 @@ import { UpcomingAppointmentsPanel } from "@/components/calendar/UpcomingAppoint
 import { WeekView } from "@/components/calendar/WeekView";
 import { useAgendamentos, type Agendamento } from "@/hooks/useAgendamentos";
 import { parseAgendamentoDate } from "@/lib/agendamento-date";
-import { getUnitByHost } from "@/config/units";
 
 function distinct(values: (string | null)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
@@ -27,8 +25,6 @@ const UnitPanel = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("agenda");
   const { data: agendamentos, isLoading, isError, error } = useAgendamentos();
-  // Num subdomínio de cliente não faz sentido oferecer "todas as unidades".
-  const viaHost = !!getUnitByHost(typeof window !== "undefined" ? window.location.hostname : undefined);
 
   const handlePrev = () => {
     if (view === "month") setCurrentDate((d) => subMonths(d, 1));
@@ -83,14 +79,6 @@ const UnitPanel = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {!viaHost && (
-          <div className="mb-4">
-            <Link to="/" className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> Todas as unidades
-            </Link>
-          </div>
-        )}
-
         {isError && (
           <div className="mb-4 rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             Erro ao carregar agendamentos: {(error as any)?.message || "verifique a conexão / permissões da tabela."}

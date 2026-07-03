@@ -48,10 +48,12 @@ function fromRow(row: Record<string, any>): Agendamento {
     id: row.id,
     created_at: row.created_at,
     Data: row["Data"] ?? null,
-    Nome: row["Nome"] ?? null,
-    "Número": row["Número"] ?? null,
+    // Fisio Vida usa grafias proprias (Noem/Telefone/Confirmado1); coalesce com
+    // prioridade para o nome canonico, entao as demais tabelas nao sao afetadas.
+    Nome: pick(row, ["Nome", "Noem"]),
+    "Número": pick(row, ["Número", "Telefone"]),
     Anotações: row["Anotações"] ?? null,
-    Confirmação: row["Confirmação"] ?? null,
+    Confirmação: pick(row, ["Confirmação", "Confirmado1"]),
     "1 Dia antes": row["1 Dia antes"] ?? null,
     "No dia": row["No dia"] ?? null,
     Valor: row["Valor"] ?? null,

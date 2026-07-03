@@ -45,6 +45,7 @@ export const UNITS: Unit[] = [
   { slug: "botoclinic-sao-carlos", label: "Botoclinic São Carlos",         table: "Agendamento_botoclinic_são_carlos",  respStyle: "accented" },
   { slug: "ef-harmony",            label: "EF Harmony",                    table: "Agendamento_ef_harmony",             respStyle: "accented" },
   { slug: "ladydai",               label: "Lady Dai",                      table: "Agendamento_ladydai",                respStyle: "accented" },
+  { slug: "fisio-vida",            label: "Fisio Vida",                    table: "Agendamento_Fisio_Vida",             respStyle: "ascii" },
 ];
 
 export function getUnitBySlug(slug: string | undefined): Unit | undefined {

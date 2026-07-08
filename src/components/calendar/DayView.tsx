@@ -1,9 +1,10 @@
-import { format, isSameDay } from "date-fns";
+import { useMemo } from "react";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { CalendarDays, Phone, User, CheckCircle, AlertCircle, Clock, Sparkles } from "lucide-react";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { formatAgendamentoTime, parseAgendamentoDate } from "@/lib/agendamento-date";
+import { dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 
 interface DayViewProps {
   currentDate: Date;
@@ -28,10 +29,10 @@ function getStatusBorder(confirmacao: string | null) {
 }
 
 export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProps) {
-  const dayEvents = agendamentos.filter((a) => {
-    const parsed = parseAgendamentoDate(a.Data);
-    return parsed ? isSameDay(parsed, currentDate) : false;
-  });
+  const dayEvents = useMemo(() => {
+    const key = dayKeyFromDate(currentDate);
+    return agendamentos.filter((a) => a.dayKey === key);
+  }, [agendamentos, currentDate]);
 
   return (
     <div className="glass-card rounded-2xl p-6">
@@ -66,7 +67,7 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
                     <User className="h-3.5 w-3.5 text-green-400" />
                     <span className="text-sm font-bold text-foreground">{event.Nome || "Sem nome"}</span>
                   </div>
-                  <p className="mb-2 text-xs font-semibold text-primary">{formatAgendamentoTime(event.Data)}</p>
+                  <p className="mb-2 text-xs font-semibold text-primary">{formatAgendamentoTime(event.parsedDate)}</p>
                   {event["Número"] && (
                     <div className="mb-1 flex items-center gap-2">
                       <Phone className="h-3 w-3 text-muted-foreground" />

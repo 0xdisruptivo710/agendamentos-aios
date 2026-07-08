@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { eachDayOfInterval, format, isSameDay, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
+import { eachDayOfInterval, format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import {
@@ -14,7 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { parseAgendamentoDate } from "@/lib/agendamento-date";
+import { dayKeyFromDate } from "@/lib/agendamento-date";
 
 interface ReportsViewProps {
   agendamentos: Agendamento[];
@@ -65,10 +65,7 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
   }), [from, to]);
 
   const filtered = useMemo(() => {
-    return agendamentos.filter((a) => {
-      const d = parseAgendamentoDate(a.Data);
-      return d ? isWithinInterval(d, range) : false;
-    });
+    return agendamentos.filter((a) => (a.parsedDate ? isWithinInterval(a.parsedDate, range) : false));
   }, [agendamentos, range]);
 
   // KPIs corrigidos
@@ -85,12 +82,10 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
   // Análise por dia
   const dayDate = useMemo(() => new Date(`${selectedDay}T00:00:00`), [selectedDay]);
   const dayInsideRange = isWithinInterval(dayDate, range);
+  // dayKey é "yyyy-MM-dd" — mesmo formato do <input type="date">, compara direto.
   const doDia = useMemo(
-    () => agendamentos.filter((a) => {
-      const d = parseAgendamentoDate(a.Data);
-      return d ? isSameDay(d, dayDate) : false;
-    }),
-    [agendamentos, dayDate],
+    () => agendamentos.filter((a) => a.dayKey === selectedDay),
+    [agendamentos, selectedDay],
   );
   const doDiaComVenda = doDia.filter((a) => Number(a.Valor) > 0);
   const faturamentoDoDia = doDiaComVenda.reduce((acc, a) => acc + Number(a.Valor || 0), 0);
@@ -124,19 +119,23 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
     [filtered],
   );
 
-  // Faturamento ao longo do tempo (line chart por dia)
+  // Faturamento ao longo do tempo (line chart por dia).
+  // Soma por dayKey em UMA passada (O(N + dias)) — antes era um filter+parse
+  // da lista inteira PARA CADA dia do período (O(dias × N)), um dos gargalos
+  // que travavam o dashboard com 1000+ agendamentos.
   const faturamentoTimeline = useMemo(() => {
     if (range.start > range.end) return [];
+    const totalPorDia = new Map<string, number>();
+    for (const a of filtered) {
+      const valor = Number(a.Valor);
+      if (!a.dayKey || !(valor > 0)) continue;
+      totalPorDia.set(a.dayKey, (totalPorDia.get(a.dayKey) || 0) + valor);
+    }
     const days = eachDayOfInterval({ start: range.start, end: range.end });
-    return days.map((day) => {
-      const total = filtered
-        .filter((a) => {
-          const d = parseAgendamentoDate(a.Data);
-          return d ? isSameDay(d, day) && Number(a.Valor) > 0 : false;
-        })
-        .reduce((acc, a) => acc + Number(a.Valor || 0), 0);
-      return { name: format(day, "dd/MM"), value: total };
-    });
+    return days.map((day) => ({
+      name: format(day, "dd/MM"),
+      value: totalPorDia.get(dayKeyFromDate(day)) || 0,
+    }));
   }, [filtered, range]);
 
   const setRange = (days: number) => {

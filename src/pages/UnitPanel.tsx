@@ -11,7 +11,6 @@ import { ReportsView } from "@/components/calendar/ReportsView";
 import { UpcomingAppointmentsPanel } from "@/components/calendar/UpcomingAppointmentsPanel";
 import { WeekView } from "@/components/calendar/WeekView";
 import { useAgendamentos, type Agendamento } from "@/hooks/useAgendamentos";
-import { parseAgendamentoDate } from "@/lib/agendamento-date";
 
 function distinct(values: (string | null)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
@@ -40,8 +39,7 @@ const UnitPanel = () => {
 
   const handleEventClick = (event: Agendamento) => {
     setSelectedEvent(event);
-    const parsedDate = parseAgendamentoDate(event.Data);
-    if (parsedDate) setCurrentDate(parsedDate);
+    if (event.parsedDate) setCurrentDate(event.parsedDate);
     setDialogOpen(true);
   };
 
@@ -54,11 +52,7 @@ const UnitPanel = () => {
   const stats = useMemo(() => {
     if (!agendamentos) return { total: 0, today: 0, confirmed: 0, pending: 0 };
 
-    const validDates = agendamentos.filter((a) => parseAgendamentoDate(a.Data));
-    const today = validDates.filter((a) => {
-      const parsed = parseAgendamentoDate(a.Data);
-      return parsed ? isToday(parsed) : false;
-    });
+    const today = agendamentos.filter((a) => (a.parsedDate ? isToday(a.parsedDate) : false));
     const confirmed = agendamentos.filter((a) => {
       const s = a.Confirmação?.toLowerCase() || "";
       return s.includes("confirm") || s.includes("ok");

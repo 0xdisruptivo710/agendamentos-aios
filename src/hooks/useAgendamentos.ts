@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { compareAgendamentoDates } from "@/lib/agendamento-date";
+import { dayKeyFromDate, parseAgendamentoDate } from "@/lib/agendamento-date";
 import { useUnit } from "@/context/UnitContext";
 import type { RespStyle } from "@/config/units";
 
@@ -11,6 +11,9 @@ export interface Agendamento {
   id: number;
   created_at: string;
   Data: string | null;
+  // Pré-computados no fetch (parse de data é caro; rodar 1x por linha, nunca no render):
+  parsedDate: Date | null;
+  dayKey: string | null; // "yyyy-MM-dd" p/ agrupamento e comparação com <input type="date">
   Nome: string | null;
   "Número": string | null;
   Anotações: string | null;
@@ -44,10 +47,13 @@ function pick(row: Record<string, any>, keys: string[]): string | null {
 }
 
 function fromRow(row: Record<string, any>): Agendamento {
+  const parsedDate = parseAgendamentoDate(row["Data"] ?? null);
   return {
     id: row.id,
     created_at: row.created_at,
     Data: row["Data"] ?? null,
+    parsedDate,
+    dayKey: parsedDate ? dayKeyFromDate(parsedDate) : null,
     // Fisio Vida usa grafias proprias (Noem/Telefone/Confirmado1); coalesce com
     // prioridade para o nome canonico, entao as demais tabelas nao sao afetadas.
     Nome: pick(row, ["Nome", "Noem"]),
@@ -78,16 +84,36 @@ function toRow(updates: Partial<Agendamento>, respStyle: RespStyle): Record<stri
   return row;
 }
 
+// O PostgREST corta a resposta em 1000 linhas por request (comprovado:
+// Content-Range 0-999/4731 na Fisio Vida). Sem paginação, tabelas grandes
+// perdiam tudo acima das 1000 primeiras — por isso buscamos em páginas até
+// vir página incompleta. O .order("id") é obrigatório: sem ordem estável,
+// .range() pode repetir/pular linhas entre páginas.
+const PAGE_SIZE = 1000;
+
 export function useAgendamentos() {
   const unit = useUnit();
   return useQuery({
     queryKey: ["agendamentos", unit.table],
     queryFn: async () => {
-      const { data, error } = await supabase.from(unit.table).select("*");
-      if (error) throw error;
-      return (data as Record<string, any>[])
+      const rows: Record<string, any>[] = [];
+      for (let from = 0; ; from += PAGE_SIZE) {
+        const { data, error } = await supabase
+          .from(unit.table)
+          .select("*")
+          .order("id", { ascending: true })
+          .range(from, from + PAGE_SIZE - 1);
+        if (error) throw error;
+        rows.push(...(data ?? []));
+        if (!data || data.length < PAGE_SIZE) break;
+      }
+      return rows
         .map(fromRow)
-        .sort((a, b) => compareAgendamentoDates(a.Data, b.Data));
+        .sort(
+          (a, b) =>
+            (a.parsedDate?.getTime() ?? Number.POSITIVE_INFINITY) -
+            (b.parsedDate?.getTime() ?? Number.POSITIVE_INFINITY),
+        );
     },
   });
 }

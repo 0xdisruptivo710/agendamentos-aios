@@ -9,7 +9,6 @@ import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarS
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { useUpdateAgendamento } from "@/hooks/useAgendamentos";
-import { parseAgendamentoDate } from "@/lib/agendamento-date";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -59,7 +58,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
 
   const status = getStatusConfig(event.Confirmação);
   const StatusIcon = status.icon;
-  const parsedDate = parseAgendamentoDate(event.Data);
+  const parsedDate = event.parsedDate;
 
   const handleSave = async () => {
     try {

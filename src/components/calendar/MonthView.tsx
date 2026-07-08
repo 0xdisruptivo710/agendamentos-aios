@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   startOfMonth,
   endOfMonth,
@@ -6,13 +7,12 @@ import {
   eachDayOfInterval,
   format,
   isSameMonth,
-  isSameDay,
   isToday,
 } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { formatAgendamentoTime, parseAgendamentoDate } from "@/lib/agendamento-date";
+import { buildDayIndex, dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 
 interface MonthViewProps {
   currentDate: Date;
@@ -37,11 +37,11 @@ export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick 
   const days = eachDayOfInterval({ start: calStart, end: calEnd });
   const weekDays = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-  const getEventsForDay = (day: Date) =>
-    agendamentos.filter((a) => {
-      const eventDate = parseAgendamentoDate(a.Data);
-      return eventDate ? isSameDay(eventDate, day) : false;
-    });
+  // Índice dia -> eventos (O(N) uma vez) em vez de filtrar+parsear a lista
+  // inteira para cada uma das 42 células a cada render (era o que travava
+  // o painel com 1000+ agendamentos).
+  const eventsByDay = useMemo(() => buildDayIndex(agendamentos), [agendamentos]);
+  const getEventsForDay = (day: Date) => eventsByDay.get(dayKeyFromDate(day)) ?? [];
 
   return (
     <div className="glass-card overflow-hidden rounded-2xl">
@@ -87,7 +87,7 @@ export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick 
                     }}
                     className={`w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold leading-tight transition-all hover:brightness-95 ${getConfirmationColor(event.Confirmação)}`}
                   >
-                    <span className="block">{formatAgendamentoTime(event.Data)}</span>
+                    <span className="block">{formatAgendamentoTime(event.parsedDate)}</span>
                     <span className="mt-0.5 block truncate">{event.Nome || "Sem nome"}</span>
                   </button>
                 ))}

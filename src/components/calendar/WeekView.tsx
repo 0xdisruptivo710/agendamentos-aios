@@ -1,8 +1,9 @@
-import { startOfWeek, endOfWeek, eachDayOfInterval, format, isSameDay, isToday } from "date-fns";
+import { useMemo } from "react";
+import { startOfWeek, endOfWeek, eachDayOfInterval, format, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { formatAgendamentoTime, parseAgendamentoDate } from "@/lib/agendamento-date";
+import { buildDayIndex, dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 
 interface WeekViewProps {
   currentDate: Date;
@@ -24,11 +25,9 @@ export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewPr
   const weekEnd = endOfWeek(currentDate, { locale: ptBR });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
 
-  const getEventsForDay = (day: Date) =>
-    agendamentos.filter((a) => {
-      const parsed = parseAgendamentoDate(a.Data);
-      return parsed ? isSameDay(parsed, day) : false;
-    });
+  // Lookup O(1) por dia via índice memoizado (parse já feito no fetch).
+  const eventsByDay = useMemo(() => buildDayIndex(agendamentos), [agendamentos]);
+  const getEventsForDay = (day: Date) => eventsByDay.get(dayKeyFromDate(day)) ?? [];
 
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-7">
@@ -63,7 +62,7 @@ export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewPr
                   onClick={() => onEventClick(event)}
                   className={`w-full rounded-xl border p-2.5 text-left transition-all hover:brightness-95 ${getConfirmationStyle(event.Confirmação)}`}
                 >
-                  <p className="text-[11px] font-bold text-primary">{formatAgendamentoTime(event.Data)}</p>
+                  <p className="text-[11px] font-bold text-primary">{formatAgendamentoTime(event.parsedDate)}</p>
                   <p className="mt-1 text-xs font-semibold text-foreground line-clamp-2">{event.Nome || "Sem nome"}</p>
                   {event["Número"] && <p className="mt-1 truncate text-[10px] text-muted-foreground">{event["Número"]}</p>}
                 </button>

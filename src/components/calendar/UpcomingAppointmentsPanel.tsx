@@ -1,9 +1,10 @@
+import { useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import { Clock3, Sparkles, StickyNote, UserRound } from "lucide-react";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { formatAgendamentoTime, isUpcomingAgendamento, parseAgendamentoDate } from "@/lib/agendamento-date";
+import { formatAgendamentoTime, isUpcomingAgendamento } from "@/lib/agendamento-date";
 
 interface UpcomingAppointmentsPanelProps {
   agendamentos: Agendamento[];
@@ -11,9 +12,10 @@ interface UpcomingAppointmentsPanelProps {
 }
 
 export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: UpcomingAppointmentsPanelProps) {
-  const upcoming = agendamentos
-    .filter((item) => isUpcomingAgendamento(item.Data))
-    .slice(0, 10);
+  const upcoming = useMemo(
+    () => agendamentos.filter((item) => isUpcomingAgendamento(item.parsedDate)).slice(0, 10),
+    [agendamentos],
+  );
 
   return (
     <aside className="glass-card rounded-xl p-5 h-full">
@@ -29,7 +31,7 @@ export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: Upcomi
           </div>
         ) : (
           upcoming.map((event, index) => {
-            const parsedDate = parseAgendamentoDate(event.Data);
+            const parsedDate = event.parsedDate;
 
             return (
               <motion.button
@@ -52,7 +54,7 @@ export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: Upcomi
                     </p>
                   </div>
                   <div className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-primary">
-                    {formatAgendamentoTime(event.Data)}
+                    {formatAgendamentoTime(event.parsedDate)}
                   </div>
                 </div>
 

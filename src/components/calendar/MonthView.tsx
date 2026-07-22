@@ -13,6 +13,7 @@ import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { buildDayIndex, dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
+import { deriveStatus, type StatusTone } from "@/lib/agendamento-status";
 
 interface MonthViewProps {
   currentDate: Date;
@@ -21,13 +22,13 @@ interface MonthViewProps {
   onDayClick: (date: Date) => void;
 }
 
-function getConfirmationColor(confirmacao: string | null) {
-  if (!confirmacao) return "bg-muted text-foreground";
-  const lower = confirmacao.toLowerCase();
-  if (lower.includes("confirm") || lower.includes("ok")) return "bg-primary/12 text-primary";
-  if (lower.includes("cancel") || lower.includes("desmarc")) return "bg-destructive/10 text-destructive";
-  return "bg-secondary text-primary";
-}
+const TONE_PILL: Record<StatusTone, string> = {
+  success: "bg-green-400/12 text-green-600",
+  danger: "bg-destructive/10 text-destructive",
+  warning: "bg-amber-400/12 text-amber-600",
+  primary: "bg-primary/12 text-primary",
+  muted: "bg-muted text-foreground",
+};
 
 export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick }: MonthViewProps) {
   const monthStart = startOfMonth(currentDate);
@@ -85,7 +86,7 @@ export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick 
                       e.stopPropagation();
                       onEventClick(event);
                     }}
-                    className={`w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold leading-tight transition-all hover:brightness-95 ${getConfirmationColor(event.Confirmação)}`}
+                    className={`w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold leading-tight transition-all hover:brightness-95 ${TONE_PILL[deriveStatus(event).tone]}`}
                   >
                     <span className="block">{formatAgendamentoTime(event.parsedDate)}</span>
                     <span className="mt-0.5 block truncate">{event.Nome || "Sem nome"}</span>

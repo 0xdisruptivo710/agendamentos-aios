@@ -4,6 +4,7 @@ import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { buildDayIndex, dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
+import { deriveStatus, type StatusTone } from "@/lib/agendamento-status";
 
 interface WeekViewProps {
   currentDate: Date;
@@ -11,14 +12,13 @@ interface WeekViewProps {
   onEventClick: (event: Agendamento) => void;
 }
 
-function getConfirmationStyle(confirmacao: string | null) {
-  if (!confirmacao) return "border-green-300/30 bg-secondary";
-  const lower = confirmacao.toLowerCase();
-  if (lower.includes("confirm") || lower.includes("ok")) return "border-green-400/50 bg-green-400/10";
-  if (lower.includes("cancel") || lower.includes("desmarc")) return "border-destructive/50 bg-destructive/10";
-  if (lower.includes("reagend")) return "border-green-300/50 bg-green-300/10";
-  return "border-green-300/40 bg-green-300/10";
-}
+const TONE_STYLE: Record<StatusTone, string> = {
+  success: "border-green-400/50 bg-green-400/10",
+  danger: "border-destructive/50 bg-destructive/10",
+  warning: "border-amber-400/50 bg-amber-400/10",
+  primary: "border-primary/40 bg-primary/10",
+  muted: "border-green-300/30 bg-secondary",
+};
 
 export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewProps) {
   const weekStart = startOfWeek(currentDate, { locale: ptBR });
@@ -60,7 +60,7 @@ export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewPr
                   key={event.id}
                   type="button"
                   onClick={() => onEventClick(event)}
-                  className={`w-full rounded-xl border p-2.5 text-left transition-all hover:brightness-95 ${getConfirmationStyle(event.Confirmação)}`}
+                  className={`w-full rounded-xl border p-2.5 text-left transition-all hover:brightness-95 ${TONE_STYLE[deriveStatus(event).tone]}`}
                 >
                   <p className="text-[11px] font-bold text-primary">{formatAgendamentoTime(event.parsedDate)}</p>
                   <p className="mt-1 text-xs font-semibold text-foreground line-clamp-2">{event.Nome || "Sem nome"}</p>

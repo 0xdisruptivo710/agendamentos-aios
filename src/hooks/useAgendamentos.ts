@@ -26,6 +26,12 @@ export interface Agendamento {
   Tipo: string | null;
   Procedimento: string | null;
   Cancelamento: string | null;
+  // Campos clínicos por unidade (só existem nas tabelas cuja unidade os habilita
+  // em config; nas demais vêm undefined -> null e nunca são escritos). Ver units.ts.
+  Agendou: string | null;        // "Sim"/"Não": paciente confirmou o horário
+  Origem: string | null;         // "Convênio"/"Particular"
+  Presenca: string | null;       // "Compareceu"/"Faltou (justificada)"/"Faltou (não justificada)"
+  Justificativa: string | null;  // texto livre da falta justificada
 }
 
 const RESP_AG: Record<RespStyle, string> = {
@@ -68,6 +74,10 @@ function fromRow(row: Record<string, any>): Agendamento {
     Tipo: row["Tipo"] ?? null,
     Procedimento: row["Procedimento"] ?? null,
     Cancelamento: pick(row, ["Cancelamento", "Cancelado"]),
+    Agendou: row["Agendou"] ?? null,
+    Origem: row["Origem"] ?? null,
+    Presenca: row["Presenca"] ?? null,
+    Justificativa: row["Justificativa"] ?? null,
   };
 }
 
@@ -81,6 +91,13 @@ function toRow(updates: Partial<Agendamento>, respStyle: RespStyle): Record<stri
   if ("Procedimento" in updates) row["Procedimento"] = updates.Procedimento;
   if ("Responsavel_Agendamento" in updates) row[RESP_AG[respStyle]] = updates.Responsavel_Agendamento;
   if ("Responsavel_Atendimento" in updates) row[RESP_AT[respStyle]] = updates.Responsavel_Atendimento;
+  // Campos clínicos: nomes ASCII únicos (sem variação por respStyle). Só entram
+  // no update quando a unidade os habilitou (o modal só envia essas chaves nesse
+  // caso), então nenhuma outra tabela recebe colunas que não tem.
+  if ("Agendou" in updates) row["Agendou"] = updates.Agendou;
+  if ("Origem" in updates) row["Origem"] = updates.Origem;
+  if ("Presenca" in updates) row["Presenca"] = updates.Presenca;
+  if ("Justificativa" in updates) row["Justificativa"] = updates.Justificativa;
   return row;
 }
 

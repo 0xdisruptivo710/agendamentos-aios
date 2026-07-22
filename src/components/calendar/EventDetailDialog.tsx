@@ -5,10 +5,22 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles } from "lucide-react";
+import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles, CalendarCheck, UserCheck, Building2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { useUpdateAgendamento } from "@/hooks/useAgendamentos";
+import { useUnit } from "@/context/UnitContext";
+import {
+  deriveStatus,
+  guessOrigem,
+  AGENDOU,
+  ORIGEM,
+  ORIGEM_OPCOES,
+  PRESENCA,
+  PRESENCA_OPCOES,
+  type StatusTone,
+} from "@/lib/agendamento-status";
+import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { toast } from "sonner";
@@ -26,21 +38,73 @@ interface EventDetailDialogProps {
   suggestions?: EventSuggestions;
 }
 
-function getStatusConfig(confirmacao: string | null) {
-  if (!confirmacao) return { icon: Clock, label: "Pendente", color: "text-green-400", bg: "bg-green-300/10" };
-  const lower = confirmacao.toLowerCase();
-  if (lower.includes("confirm") || lower.includes("ok")) return { icon: CheckCircle, label: "Confirmado", color: "text-green-500", bg: "bg-green-400/10" };
-  if (lower.includes("cancel") || lower.includes("desmarc")) return { icon: AlertCircle, label: "Cancelado", color: "text-destructive", bg: "bg-destructive/10" };
-  return { icon: Clock, label: confirmacao, color: "text-primary", bg: "bg-primary/10" };
+const TONE_ICON: Record<StatusTone, typeof CheckCircle> = {
+  success: CheckCircle,
+  danger: AlertCircle,
+  warning: Clock,
+  primary: Clock,
+  muted: Clock,
+};
+
+const TONE_CHIP_STRONG: Record<StatusTone, string> = {
+  success: "bg-green-400/10 text-green-500",
+  danger: "bg-destructive/10 text-destructive",
+  warning: "bg-amber-400/10 text-amber-500",
+  primary: "bg-primary/10 text-primary",
+  muted: "bg-green-300/10 text-green-400",
+};
+
+// Classe do botão ATIVO de um controle segmentado, por tom semântico.
+const ACTIVE_TONE: Record<"success" | "danger" | "warning" | "primary", string> = {
+  success: "border-green-400/60 bg-green-400/15 text-green-500",
+  danger: "border-destructive/60 bg-destructive/15 text-destructive",
+  warning: "border-amber-400/60 bg-amber-400/15 text-amber-500",
+  primary: "border-primary/50 bg-primary/10 text-primary",
+};
+
+interface SegOption {
+  value: string;
+  label: string;
+  activeClass: string;
+}
+
+// Controle segmentado simples (sem dependência nova). Clicar no item ativo limpa
+// a seleção (volta a "não registrado").
+function Segmented({ value, options, onChange }: { value: string; options: SegOption[]; onChange: (v: string) => void }) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((o) => {
+        const active = value === o.value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(active ? "" : o.value)}
+            className={cn(
+              "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors",
+              active ? o.activeClass : "border-border bg-secondary/50 text-muted-foreground hover:bg-secondary",
+            )}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function EventDetailDialog({ event, open, onOpenChange, suggestions }: EventDetailDialogProps) {
+  const cfg = useUnit().config;
   const [notes, setNotes] = useState("");
   const [valor, setValor] = useState<string>("");
   const [respAgendamento, setRespAgendamento] = useState("");
   const [respAtendimento, setRespAtendimento] = useState("");
   const [tipo, setTipo] = useState<string>("");
   const [procedimento, setProcedimento] = useState<string>("");
+  const [agendou, setAgendou] = useState<string>("");
+  const [origem, setOrigem] = useState<string>("");
+  const [presenca, setPresenca] = useState<string>("");
+  const [justificativa, setJustificativa] = useState<string>("");
   const updateMutation = useUpdateAgendamento();
 
   useEffect(() => {
@@ -51,14 +115,31 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
       setRespAtendimento(event.Responsavel_Atendimento || "");
       setTipo(event.Tipo || "");
       setProcedimento(event.Procedimento || "");
+      setAgendou(event.Agendou || "");
+      // Origem: usa o valor gravado; se vazio, sugere a partir do procedimento
+      // (não-destrutivo — só preenche o formulário, o usuário confirma no Salvar).
+      setOrigem(event.Origem || (cfg?.origem ? guessOrigem(event.Procedimento) ?? "" : ""));
+      setPresenca(event.Presenca || "");
+      setJustificativa(event.Justificativa || "");
     }
-  }, [event]);
+  }, [event, cfg?.origem]);
 
   if (!event) return null;
 
-  const status = getStatusConfig(event.Confirmação);
-  const StatusIcon = status.icon;
+  const categorias = cfg?.categorias ?? ["Avaliação", "Agendamento"];
+  const status = deriveStatus(event);
+  const StatusIcon = TONE_ICON[status.tone];
   const parsedDate = event.parsedDate;
+
+  const presencaOptions: SegOption[] = [
+    { value: PRESENCA.COMPARECEU, label: "Compareceu", activeClass: ACTIVE_TONE.success },
+    { value: PRESENCA.FALTOU_JUSTIFICADA, label: "Faltou (justificada)", activeClass: ACTIVE_TONE.warning },
+    { value: PRESENCA.FALTOU_NAO_JUSTIFICADA, label: "Faltou (não justificada)", activeClass: ACTIVE_TONE.danger },
+  ];
+  const agendouOptions: SegOption[] = [
+    { value: AGENDOU.SIM, label: "Sim", activeClass: ACTIVE_TONE.success },
+    { value: AGENDOU.NAO, label: "Não", activeClass: ACTIVE_TONE.danger },
+  ];
 
   const handleSave = async () => {
     try {
@@ -67,17 +148,24 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
         toast.error("Valor inválido");
         return;
       }
-      await updateMutation.mutateAsync({
-        id: event.id,
-        updates: {
-          Anotações: notes,
-          Valor: valorParsed,
-          Responsavel_Agendamento: respAgendamento || null,
-          Responsavel_Atendimento: respAtendimento || null,
-          Tipo: tipo || null,
-          Procedimento: procedimento || null,
-        },
-      });
+      const updates: Partial<Agendamento> = {
+        Anotações: notes,
+        Valor: valorParsed,
+        Responsavel_Agendamento: respAgendamento || null,
+        Responsavel_Atendimento: respAtendimento || null,
+        Tipo: tipo || null,
+        Procedimento: procedimento || null,
+      };
+      // Só envia os campos clínicos quando a unidade os habilita — assim nenhuma
+      // outra tabela recebe colunas que não possui.
+      if (cfg?.agendou) updates.Agendou = agendou || null;
+      if (cfg?.origem) updates.Origem = origem || null;
+      if (cfg?.presenca) {
+        updates.Presenca = presenca || null;
+        // Justificativa só faz sentido em falta justificada.
+        updates.Justificativa = presenca === PRESENCA.FALTOU_JUSTIFICADA ? justificativa || null : null;
+      }
+      await updateMutation.mutateAsync({ id: event.id, updates });
       toast.success("Agendamento atualizado!");
     } catch (e: any) {
       toast.error("Erro ao salvar" + (e?.message ? ": " + e.message : ""));
@@ -103,9 +191,9 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
         </datalist>
 
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="mt-2 space-y-4">
-          <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 ${status.bg}`}>
-            <StatusIcon className={`h-4 w-4 ${status.color}`} />
-            <span className={`text-sm font-semibold ${status.color}`}>{status.label}</span>
+          <div className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 ${TONE_CHIP_STRONG[status.tone]}`}>
+            <StatusIcon className="h-4 w-4" />
+            <span className="text-sm font-semibold">{status.label}</span>
           </div>
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -135,6 +223,24 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
             </p>
           </div>
 
+          {/* Registro de presença/falta (unidades com config.presenca) */}
+          {cfg?.presenca && (
+            <div className="space-y-2 rounded-xl border border-border bg-secondary/30 p-3">
+              <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                <UserCheck className="h-3.5 w-3.5 text-green-400" /> Comparecimento
+              </Label>
+              <Segmented value={presenca} options={presencaOptions} onChange={setPresenca} />
+              {presenca === PRESENCA.FALTOU_JUSTIFICADA && (
+                <Textarea
+                  value={justificativa}
+                  onChange={(e) => setJustificativa(e.target.value)}
+                  placeholder="Justificativa da falta..."
+                  className="mt-1 min-h-[60px] resize-none border-border bg-secondary/50 text-foreground"
+                />
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
@@ -151,19 +257,51 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
             </div>
             <div className="space-y-1.5">
               <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
-                <ClipboardList className="h-3.5 w-3.5 text-green-400" /> Tipo
+                <ClipboardList className="h-3.5 w-3.5 text-green-400" /> Categoria
               </Label>
               <Select value={tipo} onValueChange={setTipo}>
                 <SelectTrigger className="border-border bg-secondary/50">
                   <SelectValue placeholder="Selecione..." />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="Avaliação">Avaliação</SelectItem>
-                  <SelectItem value="Agendamento">Agendamento</SelectItem>
+                  {categorias.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
+
+          {/* Paciente agendou? + Origem (unidades com config.agendou / config.origem) */}
+          {(cfg?.agendou || cfg?.origem) && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {cfg?.agendou && (
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                    <CalendarCheck className="h-3.5 w-3.5 text-green-400" /> Paciente agendou?
+                  </Label>
+                  <Segmented value={agendou} options={agendouOptions} onChange={setAgendou} />
+                </div>
+              )}
+              {cfg?.origem && (
+                <div className="space-y-1.5">
+                  <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                    <Building2 className="h-3.5 w-3.5 text-green-400" /> Origem do paciente
+                  </Label>
+                  <Select value={origem} onValueChange={setOrigem}>
+                    <SelectTrigger className="border-border bg-secondary/50">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {ORIGEM_OPCOES.map((o) => (
+                        <SelectItem key={o} value={o}>{o}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">

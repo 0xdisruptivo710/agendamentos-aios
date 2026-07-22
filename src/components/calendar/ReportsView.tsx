@@ -9,12 +9,15 @@ import {
 import {
   DollarSign, TrendingUp, UserCog, Stethoscope, ClipboardList,
   CalendarRange, Target, BadgePercent, Sparkles, AlertCircle,
+  UserCheck, Building2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { dayKeyFromDate } from "@/lib/agendamento-date";
+import { useUnit } from "@/context/UnitContext";
+import { PRESENCA } from "@/lib/agendamento-status";
 
 interface ReportsViewProps {
   agendamentos: Agendamento[];
@@ -54,7 +57,15 @@ function sumBy<T>(arr: T[], key: (i: T) => string | null | undefined, val: (i: T
   return Array.from(map.entries()).map(([name, value]) => ({ name, value }));
 }
 
+const PRESENCA_COLORS: Record<string, string> = {
+  [PRESENCA.COMPARECEU]: "#22c55e",
+  [PRESENCA.FALTOU_JUSTIFICADA]: "#f59e0b",
+  [PRESENCA.FALTOU_NAO_JUSTIFICADA]: "#ef4444",
+};
+const ORIGEM_COLORS = ["#4F46E5", "#06B6D4"];
+
 export function ReportsView({ agendamentos }: ReportsViewProps) {
+  const cfg = useUnit().config;
   const [from, setFrom] = useState<string>(() => format(subDays(new Date(), 30), "yyyy-MM-dd"));
   const [to, setTo] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
   const [selectedDay, setSelectedDay] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
@@ -118,6 +129,34 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
     () => countBy(filtered, (a) => a.Procedimento).sort((a, b) => b.value - a.value).slice(0, 8),
     [filtered],
   );
+
+  // Métricas clínicas (unidades com config: presença/origem/agendou).
+  const comparecimento = useMemo(() => {
+    const compareceu = filtered.filter((a) => (a.Presenca ?? "").toLowerCase().includes("compareceu")).length;
+    const faltouJust = filtered.filter((a) => a.Presenca === PRESENCA.FALTOU_JUSTIFICADA).length;
+    const faltouNao = filtered.filter((a) => a.Presenca === PRESENCA.FALTOU_NAO_JUSTIFICADA).length;
+    const registrados = compareceu + faltouJust + faltouNao;
+    const data = [
+      { name: PRESENCA.COMPARECEU, value: compareceu },
+      { name: PRESENCA.FALTOU_JUSTIFICADA, value: faltouJust },
+      { name: PRESENCA.FALTOU_NAO_JUSTIFICADA, value: faltouNao },
+    ];
+    return {
+      compareceu, faltouJust, faltouNao, registrados,
+      faltasTotal: faltouJust + faltouNao,
+      taxa: registrados > 0 ? (compareceu / registrados) * 100 : 0,
+      data,
+    };
+  }, [filtered]);
+
+  const origemData = useMemo(() => countBy(filtered, (a) => a.Origem).sort((a, b) => b.value - a.value), [filtered]);
+
+  const confirmacaoAgendou = useMemo(() => {
+    const sim = filtered.filter((a) => (a.Agendou ?? "") === "Sim").length;
+    const nao = filtered.filter((a) => (a.Agendou ?? "") === "Não").length;
+    const total = sim + nao;
+    return { sim, nao, total, taxa: total > 0 ? (sim / total) * 100 : 0 };
+  }, [filtered]);
 
   // Faturamento ao longo do tempo (line chart por dia).
   // Soma por dayKey em UMA passada (O(N + dias)) — antes era um filter+parse
@@ -252,6 +291,48 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
         </div>
       </div>
 
+      {/* Métricas clínicas (comparecimento / origem / confirmação) — só unidades com config */}
+      {(cfg?.presenca || cfg?.origem || cfg?.agendou) && (
+        <>
+          <div className="glass-card space-y-4 rounded-xl p-5">
+            <div className="flex items-center gap-2">
+              <UserCheck className="h-4 w-4 text-primary" />
+              <h3 className="text-base font-medium text-foreground">Comparecimento e origem</h3>
+            </div>
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+              {cfg?.presenca && <DayStat label="Taxa de comparecimento" value={formatPercent(comparecimento.taxa)} highlight />}
+              {cfg?.presenca && <DayStat label="Faltas c/ justificativa" value={comparecimento.faltouJust} />}
+              {cfg?.presenca && <DayStat label="Faltas s/ justificativa" value={comparecimento.faltouNao} />}
+              {cfg?.agendou && <DayStat label="Taxa de confirmação" value={formatPercent(confirmacaoAgendou.taxa)} highlight />}
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            {cfg?.presenca && (
+              <ChartCard
+                title="Comparecimento"
+                icon={UserCheck}
+                data={comparecimento.data}
+                kind="pie"
+                colors={comparecimento.data.map((d) => PRESENCA_COLORS[d.name])}
+                emptyHint="Registre presença/falta nos agendamentos para ver a distribuição"
+              />
+            )}
+            {cfg?.origem && (
+              <ChartCard
+                title="Origem: Convênio × Particular"
+                icon={Building2}
+                data={origemData}
+                kind="pie"
+                colors={ORIGEM_COLORS}
+                minVariation={1}
+                emptyHint="Preencha 'Origem do paciente' nos agendamentos para ver a distribuição"
+              />
+            )}
+          </div>
+        </>
+      )}
+
       {/* Charts grid */}
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard
@@ -315,9 +396,11 @@ interface ChartCardProps {
   valueFormatter?: (v: number) => string;
   minVariation?: number;
   emptyHint?: string;
+  colors?: string[]; // paleta semântica alinhada por índice a `data` (pizza)
 }
 
-function ChartCard({ title, icon: Icon, data, kind, valueFormatter, minVariation = 1, emptyHint }: ChartCardProps) {
+function ChartCard({ title, icon: Icon, data, kind, valueFormatter, minVariation = 1, emptyHint, colors }: ChartCardProps) {
+  const palette = colors ?? CHART_COLORS;
   const nonZero = data.filter((d) => d.value > 0);
   const hasMeaningfulData = nonZero.length >= minVariation;
 
@@ -352,7 +435,7 @@ function ChartCard({ title, icon: Icon, data, kind, valueFormatter, minVariation
             ) : (
               <PieChart>
                 <Pie data={data} dataKey="value" nameKey="name" outerRadius={80} label={(p) => `${p.name} (${p.value})`}>
-                  {data.map((_, i) => <Cell key={i} fill={CHART_COLORS[i % CHART_COLORS.length]} />)}
+                  {data.map((_, i) => <Cell key={i} fill={palette[i % palette.length]} />)}
                 </Pie>
                 <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Tooltip contentStyle={{ background: "hsl(var(--popover))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />

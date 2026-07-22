@@ -10,11 +10,24 @@
 
 export type RespStyle = "accented" | "ascii";
 
+// Config opcional POR UNIDADE. Só as unidades que a declaram ganham os campos
+// clínicos extras e as categorias próprias; as demais seguem o comportamento
+// padrão (Select "Tipo" com Avaliação/Agendamento, sem presença/origem/agendou).
+// Colunas de suporte (Agendou/Origem/Presenca/Justificativa) precisam existir
+// na tabela da unidade — ver migração fisio_vida_campos_agendou_origem_presenca.
+export interface UnitConfig {
+  categorias?: string[]; // substitui as opções fixas do Select "Tipo"
+  agendou?: boolean;     // campo "Paciente agendou?" (Sim/Não)
+  origem?: boolean;      // campo "Origem do paciente" (Convênio/Particular)
+  presenca?: boolean;    // registro de presença/falta (com/sem justificativa)
+}
+
 export interface Unit {
   slug: string;
   label: string;
   table: string;
   respStyle: RespStyle;
+  config?: UnitConfig;
 }
 
 export const UNITS: Unit[] = [
@@ -45,7 +58,22 @@ export const UNITS: Unit[] = [
   { slug: "botoclinic-sao-carlos", label: "Botoclinic São Carlos",         table: "Agendamento_botoclinic_são_carlos",  respStyle: "accented" },
   { slug: "ef-harmony",            label: "EF Harmony",                    table: "vw_agendamento_ef_harmony",          respStyle: "accented" },
   { slug: "ladydai",               label: "Lady Dai",                      table: "Agendamento_ladydai",                respStyle: "accented" },
-  { slug: "fisio-vida",            label: "Fisio Vida",                    table: "Agendamento_Fisio_Vida",             respStyle: "ascii" },
+  { slug: "fisio-vida",            label: "Fisio Vida",                    table: "Agendamento_Fisio_Vida",             respStyle: "ascii",
+    config: {
+      categorias: [
+        "Avaliação",
+        "Atividade Reflexa",
+        "RPG",
+        "Pilates",
+        "Reabilitação Perineal",
+        "Terapia Neural",
+        "Reabilitação Osteomuscular",
+        "Atendimento Domiciliar",
+      ],
+      agendou: true,
+      origem: true,
+      presenca: true,
+    } },
   { slug: "campo-belo",            label: "Campo Belo",                    table: "Agendamento_Campo_Belo",             respStyle: "accented" },
 ];
 

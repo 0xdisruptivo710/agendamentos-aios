@@ -2,9 +2,10 @@ import { useMemo } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
-import { CalendarDays, Phone, User, CheckCircle, AlertCircle, Clock, Sparkles } from "lucide-react";
+import { CalendarDays, Phone, User, CheckCircle, AlertCircle, Clock, Sparkles, Building2 } from "lucide-react";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
+import { deriveStatus, TONE_BORDER, type StatusTone } from "@/lib/agendamento-status";
 
 interface DayViewProps {
   currentDate: Date;
@@ -12,21 +13,13 @@ interface DayViewProps {
   onEventClick: (event: Agendamento) => void;
 }
 
-function getStatusIcon(confirmacao: string | null) {
-  if (!confirmacao) return <Clock className="h-4 w-4 text-green-400" />;
-  const lower = confirmacao.toLowerCase();
-  if (lower.includes("confirm") || lower.includes("ok")) return <CheckCircle className="h-4 w-4 text-green-500" />;
-  if (lower.includes("cancel") || lower.includes("desmarc")) return <AlertCircle className="h-4 w-4 text-destructive" />;
-  return <Clock className="h-4 w-4 text-primary" />;
-}
-
-function getStatusBorder(confirmacao: string | null) {
-  if (!confirmacao) return "border-green-300/40";
-  const lower = confirmacao.toLowerCase();
-  if (lower.includes("confirm") || lower.includes("ok")) return "border-green-400/50";
-  if (lower.includes("cancel") || lower.includes("desmarc")) return "border-destructive/50";
-  return "border-primary/40";
-}
+const TONE_ICON: Record<StatusTone, { Icon: typeof Clock; className: string }> = {
+  success: { Icon: CheckCircle, className: "text-green-500" },
+  danger: { Icon: AlertCircle, className: "text-destructive" },
+  warning: { Icon: AlertCircle, className: "text-amber-500" },
+  primary: { Icon: Clock, className: "text-primary" },
+  muted: { Icon: Clock, className: "text-green-400" },
+};
 
 export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProps) {
   const dayEvents = useMemo(() => {
@@ -51,7 +44,10 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
         </div>
       ) : (
         <div className="space-y-3">
-          {dayEvents.map((event, i) => (
+          {dayEvents.map((event, i) => {
+            const status = deriveStatus(event);
+            const { Icon: StatusIcon, className: statusIconClass } = TONE_ICON[status.tone];
+            return (
             <motion.button
               key={event.id}
               type="button"
@@ -59,7 +55,7 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
               onClick={() => onEventClick(event)}
-              className={`glass-card w-full rounded-2xl border p-4 text-left transition-all hover:bg-secondary/60 ${getStatusBorder(event.Confirmação)}`}
+              className={`glass-card w-full rounded-2xl border p-4 text-left transition-all hover:bg-secondary/60 ${TONE_BORDER[status.tone]}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
@@ -74,21 +70,30 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
                       <span className="text-xs text-muted-foreground">{event["Número"]}</span>
                     </div>
                   )}
-                  {event.Procedimento && (
-                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-green-400/15 px-2 py-0.5 text-[10px] font-semibold text-green-500">
-                      <Sparkles className="h-3 w-3" />
-                      <span>{event.Procedimento}</span>
-                    </div>
-                  )}
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {event.Procedimento && (
+                      <div className="inline-flex items-center gap-1 rounded-full bg-green-400/15 px-2 py-0.5 text-[10px] font-semibold text-green-500">
+                        <Sparkles className="h-3 w-3" />
+                        <span>{event.Procedimento}</span>
+                      </div>
+                    )}
+                    {event.Origem && (
+                      <div className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                        <Building2 className="h-3 w-3" />
+                        <span>{event.Origem}</span>
+                      </div>
+                    )}
+                  </div>
                   {event.Anotações && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{event.Anotações}</p>}
                 </div>
-                <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
-                  {getStatusIcon(event.Confirmação)}
-                  <span>{event.Confirmação || "Pendente"}</span>
+                <div className={`flex items-center gap-2 text-[10px] ${statusIconClass}`}>
+                  <StatusIcon className={`h-4 w-4 ${statusIconClass}`} />
+                  <span>{status.label}</span>
                 </div>
               </div>
             </motion.button>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

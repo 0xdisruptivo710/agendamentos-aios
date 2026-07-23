@@ -12,6 +12,7 @@ import { ReportsView } from "@/components/calendar/ReportsView";
 import { UpcomingAppointmentsPanel } from "@/components/calendar/UpcomingAppointmentsPanel";
 import { WeekView } from "@/components/calendar/WeekView";
 import { useAgendamentos, type Agendamento } from "@/hooks/useAgendamentos";
+import { useAtendentes } from "@/hooks/useAtendentes";
 
 function distinct(values: (string | null)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
@@ -26,6 +27,7 @@ const UnitPanel = () => {
   const [createOpen, setCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("agenda");
   const { data: agendamentos, isLoading, isError, error } = useAgendamentos();
+  const { data: atendentes } = useAtendentes();
 
   const handlePrev = () => {
     if (view === "month") setCurrentDate((d) => subMonths(d, 1));
@@ -45,11 +47,15 @@ const UnitPanel = () => {
     setDialogOpen(true);
   };
 
+  // Atendentes cadastrados (tabela painel_atendentes) entram como opção no
+  // dropdown de responsável, mesmo antes de terem qualquer agendamento.
+  const atendenteNomes = useMemo(() => (atendentes ?? []).map((a) => a.nome), [atendentes]);
+
   const suggestions: EventSuggestions = useMemo(() => ({
-    respAgendamento: distinct((agendamentos ?? []).map((a) => a.Responsavel_Agendamento)),
-    respAtendimento: distinct((agendamentos ?? []).map((a) => a.Responsavel_Atendimento)),
+    respAgendamento: distinct([...(agendamentos ?? []).map((a) => a.Responsavel_Agendamento), ...atendenteNomes]),
+    respAtendimento: distinct([...(agendamentos ?? []).map((a) => a.Responsavel_Atendimento), ...atendenteNomes]),
     procedimento: distinct((agendamentos ?? []).map((a) => a.Procedimento)),
-  }), [agendamentos]);
+  }), [agendamentos, atendenteNomes]);
 
   const stats = useMemo(() => {
     if (!agendamentos) return { total: 0, today: 0, confirmed: 0, pending: 0 };

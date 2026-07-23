@@ -5,10 +5,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles, CalendarCheck, UserCheck, Building2 } from "lucide-react";
+import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles, CalendarCheck, UserCheck, Building2, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { useUpdateAgendamento } from "@/hooks/useAgendamentos";
+import { useUpdateAgendamento, useDeleteAgendamento } from "@/hooks/useAgendamentos";
 import { useUnit } from "@/context/UnitContext";
 import {
   deriveStatus,
@@ -105,10 +105,13 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
   const [origem, setOrigem] = useState<string>("");
   const [presenca, setPresenca] = useState<string>("");
   const [justificativa, setJustificativa] = useState<string>("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const updateMutation = useUpdateAgendamento();
+  const deleteMutation = useDeleteAgendamento();
 
   useEffect(() => {
     if (event) {
+      setConfirmDelete(false);
       setNotes(event.Anotações || "");
       setValor(event.Valor != null ? String(event.Valor) : "");
       setRespAgendamento(event.Responsavel_Agendamento || "");
@@ -169,6 +172,17 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
       toast.success("Agendamento atualizado!");
     } catch (e: any) {
       toast.error("Erro ao salvar" + (e?.message ? ": " + e.message : ""));
+    }
+  };
+
+  const handleDelete = async () => {
+    try {
+      await deleteMutation.mutateAsync(event.id);
+      toast.success("Agendamento excluído");
+      onOpenChange(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      toast.error("Erro ao excluir" + (msg ? ": " + msg : ""));
     }
   };
 
@@ -359,6 +373,33 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
               {updateMutation.isPending ? "Salvando..." : "Salvar alterações"}
             </Button>
           </div>
+
+          {cfg?.excluir && (
+            <div className="border-t border-border pt-3">
+              {!confirmDelete ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => setConfirmDelete(true)}
+                  className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <Trash2 className="mr-2 h-4 w-4" /> Excluir agendamento
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 text-xs text-muted-foreground">Excluir este agendamento? Não dá pra desfazer.</span>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmDelete(false)}>Cancelar</Button>
+                  <Button
+                    size="sm"
+                    onClick={handleDelete}
+                    disabled={deleteMutation.isPending}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </motion.div>
       </DialogContent>
     </Dialog>

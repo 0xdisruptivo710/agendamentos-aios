@@ -9,7 +9,7 @@ import {
 import {
   DollarSign, TrendingUp, UserCog, Stethoscope, ClipboardList,
   CalendarRange, Target, BadgePercent, Sparkles, AlertCircle,
-  UserCheck, Building2,
+  UserCheck, Building2, UserPlus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +18,7 @@ import type { Agendamento } from "@/hooks/useAgendamentos";
 import { dayKeyFromDate } from "@/lib/agendamento-date";
 import { useUnit } from "@/context/UnitContext";
 import { PRESENCA } from "@/lib/agendamento-status";
+import { AtendentesDialog } from "@/components/calendar/AtendentesDialog";
 
 interface ReportsViewProps {
   agendamentos: Agendamento[];
@@ -69,6 +70,7 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
   const [from, setFrom] = useState<string>(() => format(subDays(new Date(), 30), "yyyy-MM-dd"));
   const [to, setTo] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
   const [selectedDay, setSelectedDay] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
+  const [atendentesOpen, setAtendentesOpen] = useState(false);
 
   const range = useMemo(() => ({
     start: startOfDay(new Date(`${from}T00:00:00`)),
@@ -192,6 +194,15 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      {cfg?.atendentes && (
+        <div className="flex justify-end">
+          <Button variant="outline" size="sm" onClick={() => setAtendentesOpen(true)}>
+            <UserPlus className="mr-1.5 h-4 w-4" /> Cadastrar atendente
+          </Button>
+          <AtendentesDialog open={atendentesOpen} onOpenChange={setAtendentesOpen} />
+        </div>
+      )}
+
       {/* Filtros */}
       <div className="glass-card rounded-xl p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -349,7 +360,7 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
           data={porAtendente}
           kind="bar"
           minVariation={2}
-          emptyHint="Cadastre 2+ responsáveis pelo atendimento para ver a distribuição"
+          emptyHint="Cadastre atendentes (botão acima) e atribua nos agendamentos para ver a distribuição"
         />
         <ChartCard
           title="Faturamento por responsável"

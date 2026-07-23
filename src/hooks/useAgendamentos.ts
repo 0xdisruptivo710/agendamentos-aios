@@ -190,6 +190,24 @@ export function useCreateAgendamentos() {
   });
 }
 
+// Exclui um agendamento pelo id (só unidades com config.excluir; a policy anon de
+// DELETE existe apenas na tabela dessas unidades).
+export function useDeleteAgendamento() {
+  const unit = useUnit();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await supabase.from(unit.table).delete().eq("id", id);
+      if (error) throw error;
+      return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agendamentos", unit.table] });
+    },
+  });
+}
+
 export function useUpdateAgendamento() {
   const unit = useUnit();
   const queryClient = useQueryClient();

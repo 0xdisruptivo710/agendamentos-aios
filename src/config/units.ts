@@ -21,6 +21,8 @@ export interface UnitConfig {
   origem?: boolean;      // campo "Origem do paciente" (Convênio/Particular)
   presenca?: boolean;    // registro de presença/falta (com/sem justificativa)
   criar?: boolean;       // botão "Novo agendamento" (+ recorrência) no painel
+  excluir?: boolean;     // botão "Excluir" no modal de detalhes (DELETE no banco)
+  atendentes?: boolean;  // cadastro de atendentes (alimenta o dropdown de responsável)
   nameCol?: string;      // coluna física do nome ao INSERIR (default "Nome")
   phoneCol?: string;     // coluna física do telefone ao INSERIR (default "Número")
 }
@@ -77,6 +79,8 @@ export const UNITS: Unit[] = [
       origem: true,
       presenca: true,
       criar: true,
+      excluir: true,
+      atendentes: true,
       nameCol: "Noem",
       phoneCol: "Telefone",
     } },

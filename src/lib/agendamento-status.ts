@@ -82,7 +82,9 @@ export const TONE_BORDER: Record<StatusTone, string> = {
   danger: "border-destructive/50",
   warning: "border-amber-400/50",
   primary: "border-primary/40",
-  muted: "border-green-300/40",
+  // Pendente/sem status = roxo da marca (antes cinza/verde). Contrasta com verde
+  // (confirmado/compareceu) e vermelho (falta).
+  muted: "border-primary/45",
 };
 
 export const TONE_CHIP: Record<StatusTone, string> = {
@@ -90,7 +92,7 @@ export const TONE_CHIP: Record<StatusTone, string> = {
   danger: "bg-destructive/10 text-destructive",
   warning: "bg-amber-400/12 text-amber-500",
   primary: "bg-primary/12 text-primary",
-  muted: "bg-muted text-muted-foreground",
+  muted: "bg-primary/10 text-primary",
 };
 
 // Heurística NÃO-destrutiva: sugere a origem a partir do procedimento quando o

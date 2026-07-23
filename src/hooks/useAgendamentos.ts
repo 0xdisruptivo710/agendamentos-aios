@@ -135,6 +135,61 @@ export function useAgendamentos() {
   });
 }
 
+// Dados para criar 1+ agendamentos (uma linha por sessão). As datas já vêm no
+// formato da tabela ("dd/MM/yyyy HH:mm"); o telefone já normalizado (55+DDD+nº).
+export interface NewAgendamentoInput {
+  nome: string;
+  telefone: string;
+  datas: string[];
+  tipo?: string | null;
+  procedimento?: string | null;
+  origem?: string | null;
+  responsavelAtendimento?: string | null;
+}
+
+// Insere as linhas uma a uma (tolerante a duplicata: o índice único
+// uniq_fisiovida_telefone_data rejeita o mesmo (Telefone,Data) com código 23505,
+// que é contado como "pulado" em vez de quebrar o lote). As colunas físicas de
+// nome/telefone vêm do config da unidade (ex.: Fisio Vida usa Noem/Telefone).
+export function useCreateAgendamentos() {
+  const unit = useUnit();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (input: NewAgendamentoInput) => {
+      const nameCol = unit.config?.nameCol ?? "Nome";
+      const phoneCol = unit.config?.phoneCol ?? "Número";
+      const base: Record<string, any> = {
+        [nameCol]: input.nome,
+        [phoneCol]: input.telefone,
+      };
+      if (input.tipo) base["Tipo"] = input.tipo;
+      if (input.procedimento) base["Procedimento"] = input.procedimento;
+      if (input.origem) base["Origem"] = input.origem;
+      if (input.responsavelAtendimento) base[RESP_AT[unit.respStyle]] = input.responsavelAtendimento;
+
+      let inserted = 0;
+      let skipped = 0;
+      let lastError: string | null = null;
+      for (const data of input.datas) {
+        const { error } = await supabase.from(unit.table).insert({ ...base, Data: data });
+        if (!error) {
+          inserted++;
+        } else if ((error as { code?: string }).code === "23505") {
+          skipped++; // (Telefone, Data) já existe — pula sem quebrar o lote
+        } else {
+          lastError = error.message;
+        }
+      }
+      if (inserted === 0 && lastError) throw new Error(lastError);
+      return { inserted, skipped };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agendamentos", unit.table] });
+    },
+  });
+}
+
 export function useUpdateAgendamento() {
   const unit = useUnit();
   const queryClient = useQueryClient();

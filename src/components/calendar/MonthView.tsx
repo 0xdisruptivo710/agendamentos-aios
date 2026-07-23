@@ -27,7 +27,8 @@ const TONE_PILL: Record<StatusTone, string> = {
   danger: "bg-destructive/10 text-destructive",
   warning: "bg-amber-400/12 text-amber-600",
   primary: "bg-primary/12 text-primary",
-  muted: "bg-muted text-foreground",
+  // Pendente = roxo da marca (antes cinza/muted).
+  muted: "bg-primary/12 text-primary",
 };
 
 export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick }: MonthViewProps) {

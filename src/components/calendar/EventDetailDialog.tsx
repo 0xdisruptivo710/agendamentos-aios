@@ -51,7 +51,7 @@ const TONE_CHIP_STRONG: Record<StatusTone, string> = {
   danger: "bg-destructive/10 text-destructive",
   warning: "bg-amber-400/10 text-amber-500",
   primary: "bg-primary/10 text-primary",
-  muted: "bg-green-300/10 text-green-400",
+  muted: "bg-primary/10 text-primary",
 };
 
 // Classe do botão ATIVO de um controle segmentado, por tom semântico.

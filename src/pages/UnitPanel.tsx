@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, BarChart3, CalendarDays, CheckCircle, Loader2, Users } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
+import { CreateAppointmentDialog } from "@/components/calendar/CreateAppointmentDialog";
 import { DayView } from "@/components/calendar/DayView";
 import { EventDetailDialog, type EventSuggestions } from "@/components/calendar/EventDetailDialog";
 import { MonthView } from "@/components/calendar/MonthView";
@@ -22,6 +23,7 @@ const UnitPanel = () => {
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [selectedEvent, setSelectedEvent] = useState<Agendamento | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("agenda");
   const { data: agendamentos, isLoading, isError, error } = useAgendamentos();
 
@@ -124,6 +126,7 @@ const UnitPanel = () => {
               onNext={handleNext}
               onToday={() => setCurrentDate(new Date())}
               onViewChange={setView}
+              onCreate={() => setCreateOpen(true)}
             />
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
@@ -143,6 +146,7 @@ const UnitPanel = () => {
         </Tabs>
 
         <EventDetailDialog event={selectedEvent} open={dialogOpen} onOpenChange={setDialogOpen} suggestions={suggestions} />
+        <CreateAppointmentDialog open={createOpen} onOpenChange={setCreateOpen} suggestions={suggestions} />
       </div>
     </div>
   );

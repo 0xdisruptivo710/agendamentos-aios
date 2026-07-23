@@ -20,6 +20,9 @@ export interface UnitConfig {
   agendou?: boolean;     // campo "Paciente agendou?" (Sim/Não)
   origem?: boolean;      // campo "Origem do paciente" (Convênio/Particular)
   presenca?: boolean;    // registro de presença/falta (com/sem justificativa)
+  criar?: boolean;       // botão "Novo agendamento" (+ recorrência) no painel
+  nameCol?: string;      // coluna física do nome ao INSERIR (default "Nome")
+  phoneCol?: string;     // coluna física do telefone ao INSERIR (default "Número")
 }
 
 export interface Unit {
@@ -73,6 +76,9 @@ export const UNITS: Unit[] = [
       agendou: true,
       origem: true,
       presenca: true,
+      criar: true,
+      nameCol: "Noem",
+      phoneCol: "Telefone",
     } },
   { slug: "campo-belo",            label: "Campo Belo",                    table: "Agendamento_Campo_Belo",             respStyle: "accented" },
 ];

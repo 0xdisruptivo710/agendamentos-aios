@@ -18,7 +18,7 @@ const TONE_ICON: Record<StatusTone, { Icon: typeof Clock; className: string }> =
   danger: { Icon: AlertCircle, className: "text-destructive" },
   warning: { Icon: AlertCircle, className: "text-amber-500" },
   primary: { Icon: Clock, className: "text-primary" },
-  muted: { Icon: Clock, className: "text-green-400" },
+  muted: { Icon: Clock, className: "text-primary" },
 };
 
 export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProps) {

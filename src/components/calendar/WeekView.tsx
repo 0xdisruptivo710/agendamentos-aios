@@ -17,7 +17,8 @@ const TONE_STYLE: Record<StatusTone, string> = {
   danger: "border-destructive/50 bg-destructive/10",
   warning: "border-amber-400/50 bg-amber-400/10",
   primary: "border-primary/40 bg-primary/10",
-  muted: "border-green-300/30 bg-secondary",
+  // Pendente = roxo da marca (antes cinza/secondary).
+  muted: "border-primary/40 bg-primary/10",
 };
 
 export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewProps) {

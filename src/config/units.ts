@@ -85,6 +85,29 @@ export const UNITS: Unit[] = [
       phoneCol: "Telefone",
     } },
   { slug: "campo-belo",            label: "Campo Belo",                    table: "Agendamento_Campo_Belo",             respStyle: "accented" },
+  // OdontoCompany: rede odontológica (franquia). Mesmo layout das clínicas de
+  // estética; só as categorias do "Tipo" viram procedimentos dentários e a
+  // Origem (Convênio/Particular) importa mais aqui (odonto popular).
+  { slug: "odontocompany",         label: "OdontoCompany",                 table: "Agendamento_odontocompany",          respStyle: "accented",
+    config: {
+      categorias: [
+        "Avaliação",
+        "Limpeza / Profilaxia",
+        "Ortodontia (manutenção)",
+        "Canal (Endodontia)",
+        "Extração",
+        "Implante",
+        "Prótese",
+        "Estética Dental",
+        "Urgência",
+      ],
+      agendou: true,
+      origem: true,
+      presenca: true,
+      criar: true,
+      excluir: true,
+      atendentes: true,
+    } },
 ];
 
 export function getUnitBySlug(slug: string | undefined): Unit | undefined {

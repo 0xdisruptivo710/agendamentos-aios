@@ -35,6 +35,27 @@ export interface Unit {
   config?: UnitConfig;
 }
 
+// Config compartilhado das 3 agendas OdontoCompany (geral + 2 unidades).
+const ODONTOCOMPANY_CONFIG: UnitConfig = {
+  categorias: [
+    "Avaliação",
+    "Limpeza / Profilaxia",
+    "Ortodontia (manutenção)",
+    "Canal (Endodontia)",
+    "Extração",
+    "Implante",
+    "Prótese",
+    "Estética Dental",
+    "Urgência",
+  ],
+  agendou: true,
+  origem: true,
+  presenca: true,
+  criar: true,
+  excluir: true,
+  atendentes: true,
+};
+
 export const UNITS: Unit[] = [
   { slug: "analia",                label: "Face Doctor Anália Franco",     table: "Agendamento_Analia",                 respStyle: "accented" },
   { slug: "barra",                 label: "Face Doctor Barra da Tijuca",   table: "barradatijucaclinics_agendamento",   respStyle: "ascii" },
@@ -88,26 +109,16 @@ export const UNITS: Unit[] = [
   // OdontoCompany: rede odontológica (franquia). Mesmo layout das clínicas de
   // estética; só as categorias do "Tipo" viram procedimentos dentários e a
   // Origem (Convênio/Particular) importa mais aqui (odonto popular).
-  { slug: "odontocompany",         label: "OdontoCompany",                 table: "Agendamento_odontocompany",          respStyle: "accented",
-    config: {
-      categorias: [
-        "Avaliação",
-        "Limpeza / Profilaxia",
-        "Ortodontia (manutenção)",
-        "Canal (Endodontia)",
-        "Extração",
-        "Implante",
-        "Prótese",
-        "Estética Dental",
-        "Urgência",
-      ],
-      agendou: true,
-      origem: true,
-      presenca: true,
-      criar: true,
-      excluir: true,
-      atendentes: true,
-    } },
+  // Uma conta, 2 unidades físicas: as agendas por unidade leem VIEWS filtradas
+  // pela coluna "Canal" (número WhatsApp da unidade) sobre a MESMA tabela.
+  // A view tem DEFAULT em "Canal", então criar pelo painel já marca a unidade.
+  // "odontocompany" (tabela crua) = visão geral com tudo, inclusive Canal null.
+  { slug: "odontocompany",         label: "OdontoCompany (geral)",         table: "Agendamento_odontocompany",          respStyle: "accented",
+    config: ODONTOCOMPANY_CONFIG },
+  { slug: "odontocompany-vila-helena", label: "OdontoCompany Vila Helena", table: "vw_agendamento_odonto_vila_helena",  respStyle: "accented",
+    config: ODONTOCOMPANY_CONFIG },
+  { slug: "odontocompany-santa-rosalia", label: "OdontoCompany Santa Rosália", table: "vw_agendamento_odonto_santa_rosalia", respStyle: "accented",
+    config: ODONTOCOMPANY_CONFIG },
 ];
 
 export function getUnitBySlug(slug: string | undefined): Unit | undefined {

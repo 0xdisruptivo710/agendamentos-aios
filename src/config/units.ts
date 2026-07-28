@@ -28,6 +28,7 @@ export interface UnitConfig {
   busca?: boolean;       // barra de busca de paciente (nome/telefone) na aba Agenda
   editarData?: boolean;  // editar data/horário no modal (+ propagar às sessões futuras)
   addCategorias?: boolean; // cadastro de categorias extras pela UI (tabela painel_categorias)
+  addProcedimentos?: boolean; // cadastro de procedimentos pela UI (tabela painel_procedimentos)
   // Cor por profissional (Resp. atendimento): primeiro nome -> cor da paleta
   // (ver src/lib/profissional-cores.ts). Match por prefixo, sem acento/caixa.
   cores?: Record<string, string>;
@@ -113,6 +114,7 @@ export const UNITS: Unit[] = [
       busca: true,
       editarData: true,
       addCategorias: true,
+      addProcedimentos: true,
       // Cores pedidas pela clínica (2026-07-28). A tabela guarda o nome completo
       // ("Nice oliveira", "Pedro Igo Lopes Ribeiro"...), o match é por prefixo.
       cores: {

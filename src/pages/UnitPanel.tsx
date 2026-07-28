@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CategoriasDialog } from "@/components/calendar/CategoriasDialog";
+import { ProcedimentosDialog } from "@/components/calendar/ProcedimentosDialog";
 import { CreateAppointmentDialog } from "@/components/calendar/CreateAppointmentDialog";
 import { DayView } from "@/components/calendar/DayView";
 import { EventDetailDialog, type EventSuggestions } from "@/components/calendar/EventDetailDialog";
@@ -15,6 +16,7 @@ import { UpcomingAppointmentsPanel } from "@/components/calendar/UpcomingAppoint
 import { WeekView } from "@/components/calendar/WeekView";
 import { useAgendamentos, type Agendamento } from "@/hooks/useAgendamentos";
 import { useAtendentes } from "@/hooks/useAtendentes";
+import { useProcedimentos } from "@/hooks/useProcedimentos";
 import { useUnit } from "@/context/UnitContext";
 import { legendaCores, normalizarTexto } from "@/lib/profissional-cores";
 
@@ -31,10 +33,12 @@ const UnitPanel = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [categoriasOpen, setCategoriasOpen] = useState(false);
+  const [procedimentosOpen, setProcedimentosOpen] = useState(false);
   const [busca, setBusca] = useState("");
   const [activeTab, setActiveTab] = useState("agenda");
   const { data: agendamentos, isLoading, isError, error } = useAgendamentos();
   const { data: atendentes } = useAtendentes();
+  const { data: procedimentosCadastrados } = useProcedimentos();
 
   // Busca de paciente (config.busca): filtra a agenda por nome (sem acento/caixa)
   // ou telefone (quando o termo tem 4+ dígitos). Vazio = agenda completa.
@@ -79,11 +83,18 @@ const UnitPanel = () => {
   // dropdown de responsável, mesmo antes de terem qualquer agendamento.
   const atendenteNomes = useMemo(() => (atendentes ?? []).map((a) => a.nome), [atendentes]);
 
+  // Procedimentos cadastrados (tabela painel_procedimentos) somam às sugestões
+  // do campo "Procedimento", junto com os valores já usados na agenda.
+  const procedimentoNomes = useMemo(
+    () => (procedimentosCadastrados ?? []).map((p) => p.nome),
+    [procedimentosCadastrados],
+  );
+
   const suggestions: EventSuggestions = useMemo(() => ({
     respAgendamento: distinct([...(agendamentos ?? []).map((a) => a.Responsavel_Agendamento), ...atendenteNomes]),
     respAtendimento: distinct([...(agendamentos ?? []).map((a) => a.Responsavel_Atendimento), ...atendenteNomes]),
-    procedimento: distinct((agendamentos ?? []).map((a) => a.Procedimento)),
-  }), [agendamentos, atendenteNomes]);
+    procedimento: distinct([...(agendamentos ?? []).map((a) => a.Procedimento), ...procedimentoNomes]),
+  }), [agendamentos, atendenteNomes, procedimentoNomes]);
 
   const stats = useMemo(() => {
     if (!agendamentos) return { total: 0, today: 0, confirmed: 0, pending: 0 };
@@ -162,6 +173,7 @@ const UnitPanel = () => {
               onViewChange={setView}
               onCreate={() => setCreateOpen(true)}
               onManageCategorias={() => setCategoriasOpen(true)}
+              onManageProcedimentos={() => setProcedimentosOpen(true)}
             />
 
             {(cfg?.busca || legenda.length > 0) && (
@@ -236,6 +248,7 @@ const UnitPanel = () => {
         />
         <CreateAppointmentDialog open={createOpen} onOpenChange={setCreateOpen} suggestions={suggestions} />
         <CategoriasDialog open={categoriasOpen} onOpenChange={setCategoriasOpen} />
+        <ProcedimentosDialog open={procedimentosOpen} onOpenChange={setProcedimentosOpen} />
       </div>
     </div>
   );

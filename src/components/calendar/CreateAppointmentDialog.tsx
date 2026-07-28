@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { toast } from "sonner";
 import { useUnit } from "@/context/UnitContext";
 import { useCreateAgendamentos } from "@/hooks/useAgendamentos";
+import { mergeCategorias, useCategorias } from "@/hooks/useCategorias";
 import { ORIGEM_OPCOES } from "@/lib/agendamento-status";
 import { generateOccurrences, normalizePhoneBR, singleOccurrence, WEEKDAYS } from "@/lib/agendamento-create";
 import { cn } from "@/lib/utils";
@@ -50,7 +51,8 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
     }
   }, [open]);
 
-  const categorias = cfg?.categorias ?? ["Avaliação", "Agendamento"];
+  const { data: categoriasExtras } = useCategorias();
+  const categorias = mergeCategorias(cfg?.categorias ?? ["Avaliação", "Agendamento"], categoriasExtras);
 
   const datas = useMemo(
     () =>

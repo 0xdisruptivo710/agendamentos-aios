@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import { Clock3, Sparkles, StickyNote, UserRound } from "lucide-react";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { formatAgendamentoTime, isUpcomingAgendamento } from "@/lib/agendamento-date";
+import { corDoProfissional } from "@/lib/profissional-cores";
+import { useUnit } from "@/context/UnitContext";
 
 interface UpcomingAppointmentsPanelProps {
   agendamentos: Agendamento[];
@@ -12,6 +14,7 @@ interface UpcomingAppointmentsPanelProps {
 }
 
 export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: UpcomingAppointmentsPanelProps) {
+  const cores = useUnit().config?.cores;
   const upcoming = useMemo(
     () => agendamentos.filter((item) => isUpcomingAgendamento(item.parsedDate)).slice(0, 10),
     [agendamentos],
@@ -32,6 +35,7 @@ export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: Upcomi
         ) : (
           upcoming.map((event, index) => {
             const parsedDate = event.parsedDate;
+            const prof = corDoProfissional(cores, event.Responsavel_Atendimento);
 
             return (
               <motion.button
@@ -48,6 +52,7 @@ export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: Upcomi
                     <div className="flex items-center gap-2 text-foreground">
                       <UserRound className="h-4 w-4 text-primary" />
                       <span className="font-medium leading-tight">{event.Nome || "Paciente sem nome"}</span>
+                      {prof && <span className={`h-2.5 w-2.5 shrink-0 rounded-full ${prof.dot}`} title={prof.key} />}
                     </div>
                     <p className="mt-1.5 text-[13px] text-muted-foreground capitalize">
                       {parsedDate ? format(parsedDate, "dd 'de' MMMM", { locale: ptBR }) : "Data inválida"}

@@ -5,6 +5,8 @@ import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { buildDayIndex, dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 import { deriveStatus, type StatusTone } from "@/lib/agendamento-status";
+import { corDoProfissional } from "@/lib/profissional-cores";
+import { useUnit } from "@/context/UnitContext";
 
 interface WeekViewProps {
   currentDate: Date;
@@ -22,6 +24,7 @@ const TONE_STYLE: Record<StatusTone, string> = {
 };
 
 export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewProps) {
+  const cores = useUnit().config?.cores;
   const weekStart = startOfWeek(currentDate, { locale: ptBR });
   const weekEnd = endOfWeek(currentDate, { locale: ptBR });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
@@ -56,18 +59,24 @@ export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewPr
             </div>
 
             <div className="space-y-2">
-              {events.map((event) => (
+              {events.map((event) => {
+                const prof = corDoProfissional(cores, event.Responsavel_Atendimento);
+                return (
                 <button
                   key={event.id}
                   type="button"
                   onClick={() => onEventClick(event)}
                   className={`w-full rounded-xl border p-2.5 text-left transition-all hover:brightness-95 ${TONE_STYLE[deriveStatus(event).tone]}`}
                 >
-                  <p className="text-[11px] font-bold text-primary">{formatAgendamentoTime(event.parsedDate)}</p>
+                  <p className="flex items-center gap-1.5 text-[11px] font-bold text-primary">
+                    {prof && <span className={`h-2 w-2 shrink-0 rounded-full ${prof.dot}`} title={prof.key} />}
+                    {formatAgendamentoTime(event.parsedDate)}
+                  </p>
                   <p className="mt-1 text-xs font-semibold text-foreground line-clamp-2">{event.Nome || "Sem nome"}</p>
                   {event["Número"] && <p className="mt-1 truncate text-[10px] text-muted-foreground">{event["Número"]}</p>}
                 </button>
-              ))}
+                );
+              })}
               {events.length === 0 && <p className="pt-4 text-center text-[10px] text-muted-foreground/50">Sem agendamentos</p>}
             </div>
           </motion.div>

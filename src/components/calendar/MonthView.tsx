@@ -14,6 +14,8 @@ import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { buildDayIndex, dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 import { deriveStatus, type StatusTone } from "@/lib/agendamento-status";
+import { corDoProfissional } from "@/lib/profissional-cores";
+import { useUnit } from "@/context/UnitContext";
 
 interface MonthViewProps {
   currentDate: Date;
@@ -32,6 +34,7 @@ const TONE_PILL: Record<StatusTone, string> = {
 };
 
 export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick }: MonthViewProps) {
+  const cores = useUnit().config?.cores;
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calStart = startOfWeek(monthStart, { locale: ptBR });
@@ -79,7 +82,9 @@ export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick 
               </div>
 
               <div className="space-y-1.5">
-                {events.slice(0, 3).map((event) => (
+                {events.slice(0, 3).map((event) => {
+                  const prof = corDoProfissional(cores, event.Responsavel_Atendimento);
+                  return (
                   <button
                     key={event.id}
                     type="button"
@@ -89,10 +94,14 @@ export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick 
                     }}
                     className={`w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold leading-tight transition-all hover:brightness-95 ${TONE_PILL[deriveStatus(event).tone]}`}
                   >
-                    <span className="block">{formatAgendamentoTime(event.parsedDate)}</span>
+                    <span className="flex items-center gap-1">
+                      {prof && <span className={`h-2 w-2 shrink-0 rounded-full ${prof.dot}`} title={prof.key} />}
+                      {formatAgendamentoTime(event.parsedDate)}
+                    </span>
                     <span className="mt-0.5 block truncate">{event.Nome || "Sem nome"}</span>
                   </button>
-                ))}
+                  );
+                })}
                 {events.length > 3 && (
                   <span className="pl-1 text-[10px] font-semibold text-primary">+{events.length - 3} agendamentos</span>
                 )}

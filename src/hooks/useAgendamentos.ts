@@ -85,6 +85,9 @@ function fromRow(row: Record<string, any>): Agendamento {
 // para não criar coluna duplicada nem quebrar a automação que já escreve lá.
 function toRow(updates: Partial<Agendamento>, respStyle: RespStyle): Record<string, any> {
   const row: Record<string, any> = {};
+  // Data no formato texto da tabela ("dd/MM/yyyy HH:mm") — só o modal de edição
+  // de data/horário (config.editarData) envia esta chave.
+  if ("Data" in updates) row["Data"] = updates.Data;
   if ("Anotações" in updates) row["Anotações"] = updates["Anotações"];
   if ("Valor" in updates) row["Valor"] = updates.Valor;
   if ("Tipo" in updates) row["Tipo"] = updates.Tipo;
@@ -201,6 +204,41 @@ export function useDeleteAgendamento() {
       const { error } = await supabase.from(unit.table).delete().eq("id", id);
       if (error) throw error;
       return id;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agendamentos", unit.table] });
+    },
+  });
+}
+
+// Reagenda várias sessões de uma vez (edição de data/horário propagada às
+// sessões futuras da recorrência — config.editarData). Atualiza linha a linha;
+// colisão com o índice único (Telefone, Data) vira "conflito" em vez de quebrar
+// o lote, para o modal informar quantas não puderam ser movidas.
+export function useReagendarSessoes() {
+  const unit = useUnit();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (items: { id: number; data: string }[]) => {
+      let updated = 0;
+      let conflicts = 0;
+      let lastError: string | null = null;
+      for (const item of items) {
+        const { error } = await supabase
+          .from(unit.table)
+          .update({ Data: item.data })
+          .eq("id", item.id);
+        if (!error) {
+          updated++;
+        } else if ((error as { code?: string }).code === "23505") {
+          conflicts++; // já existe sessão desse paciente nesse (Telefone, Data)
+        } else {
+          lastError = error.message;
+        }
+      }
+      if (updated === 0 && conflicts === 0 && lastError) throw new Error(lastError);
+      return { updated, conflicts };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["agendamentos", unit.table] });

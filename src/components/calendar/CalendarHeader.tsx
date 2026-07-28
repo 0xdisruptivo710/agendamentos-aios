@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Calendar, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, ClipboardList, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -12,9 +12,10 @@ interface CalendarHeaderProps {
   onToday: () => void;
   onViewChange: (view: "month" | "week" | "day") => void;
   onCreate?: () => void;
+  onManageCategorias?: () => void;
 }
 
-export function CalendarHeader({ currentDate, view, onPrev, onNext, onToday, onViewChange, onCreate }: CalendarHeaderProps) {
+export function CalendarHeader({ currentDate, view, onPrev, onNext, onToday, onViewChange, onCreate, onManageCategorias }: CalendarHeaderProps) {
   const unit = useUnit();
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -30,7 +31,7 @@ export function CalendarHeader({ currentDate, view, onPrev, onNext, onToday, onV
         </h2>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {unit.config?.criar && onCreate && (
           <Button
             size="sm"
@@ -38,6 +39,11 @@ export function CalendarHeader({ currentDate, view, onPrev, onNext, onToday, onV
             className="bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="mr-1.5 h-4 w-4" /> Novo agendamento
+          </Button>
+        )}
+        {unit.config?.addCategorias && onManageCategorias && (
+          <Button variant="outline" size="sm" onClick={onManageCategorias}>
+            <ClipboardList className="mr-1.5 h-4 w-4" /> Categorias
           </Button>
         )}
         <Button

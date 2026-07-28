@@ -1,9 +1,11 @@
 import { useMemo, useState } from "react";
 import { addDays, addMonths, addWeeks, isToday, subDays, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
-import { AlertCircle, BarChart3, CalendarDays, CheckCircle, Loader2, Users } from "lucide-react";
+import { AlertCircle, BarChart3, CalendarDays, CheckCircle, Loader2, Search, Users, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
+import { CategoriasDialog } from "@/components/calendar/CategoriasDialog";
 import { CreateAppointmentDialog } from "@/components/calendar/CreateAppointmentDialog";
 import { DayView } from "@/components/calendar/DayView";
 import { EventDetailDialog, type EventSuggestions } from "@/components/calendar/EventDetailDialog";
@@ -13,6 +15,8 @@ import { UpcomingAppointmentsPanel } from "@/components/calendar/UpcomingAppoint
 import { WeekView } from "@/components/calendar/WeekView";
 import { useAgendamentos, type Agendamento } from "@/hooks/useAgendamentos";
 import { useAtendentes } from "@/hooks/useAtendentes";
+import { useUnit } from "@/context/UnitContext";
+import { legendaCores, normalizarTexto } from "@/lib/profissional-cores";
 
 function distinct(values: (string | null)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
@@ -20,14 +24,38 @@ function distinct(values: (string | null)[]): string[] {
 }
 
 const UnitPanel = () => {
+  const cfg = useUnit().config;
   const [currentDate, setCurrentDate] = useState(new Date());
   const [view, setView] = useState<"month" | "week" | "day">("month");
   const [selectedEvent, setSelectedEvent] = useState<Agendamento | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [categoriasOpen, setCategoriasOpen] = useState(false);
+  const [busca, setBusca] = useState("");
   const [activeTab, setActiveTab] = useState("agenda");
   const { data: agendamentos, isLoading, isError, error } = useAgendamentos();
   const { data: atendentes } = useAtendentes();
+
+  // Busca de paciente (config.busca): filtra a agenda por nome (sem acento/caixa)
+  // ou telefone (quando o termo tem 4+ dígitos). Vazio = agenda completa.
+  const agendamentosVisiveis = useMemo(() => {
+    const all = agendamentos ?? [];
+    const q = busca.trim();
+    if (!cfg?.busca || !q) return all;
+    const qn = normalizarTexto(q);
+    const qDigits = q.replace(/\D/g, "");
+    return all.filter((a) => {
+      if (a.Nome && normalizarTexto(a.Nome).includes(qn)) return true;
+      if (qDigits.length >= 4) {
+        const tel = (a["Número"] ?? "").replace(/\D/g, "");
+        if (tel.includes(qDigits)) return true;
+      }
+      return false;
+    });
+  }, [agendamentos, busca, cfg?.busca]);
+
+  // Legenda de cores por profissional (config.cores).
+  const legenda = useMemo(() => legendaCores(cfg?.cores), [cfg?.cores]);
 
   const handlePrev = () => {
     if (view === "month") setCurrentDate((d) => subMonths(d, 1));
@@ -133,16 +161,64 @@ const UnitPanel = () => {
               onToday={() => setCurrentDate(new Date())}
               onViewChange={setView}
               onCreate={() => setCreateOpen(true)}
+              onManageCategorias={() => setCategoriasOpen(true)}
             />
+
+            {(cfg?.busca || legenda.length > 0) && (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {cfg?.busca && (
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-72 max-w-full">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        value={busca}
+                        onChange={(e) => setBusca(e.target.value)}
+                        placeholder="Buscar paciente por nome ou telefone..."
+                        className="border-border bg-card pl-9 pr-8"
+                      />
+                      {busca && (
+                        <button
+                          type="button"
+                          onClick={() => setBusca("")}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                          aria-label="Limpar busca"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                    {busca.trim() && (
+                      <span className="text-xs font-medium text-muted-foreground">
+                        {agendamentosVisiveis.length}{" "}
+                        {agendamentosVisiveis.length === 1 ? "agendamento encontrado" : "agendamentos encontrados"}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {legenda.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-2">
+                    {legenda.map((c) => (
+                      <span
+                        key={c.key}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground"
+                      >
+                        <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
+                        {c.key}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
               <motion.div key={`${view}-${currentDate.toISOString()}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.2 }}>
-                {view === "month" && <MonthView currentDate={currentDate} agendamentos={agendamentos || []} onEventClick={handleEventClick} onDayClick={(date) => { setCurrentDate(date); setView("day"); }} />}
-                {view === "week" && <WeekView currentDate={currentDate} agendamentos={agendamentos || []} onEventClick={handleEventClick} />}
-                {view === "day" && <DayView currentDate={currentDate} agendamentos={agendamentos || []} onEventClick={handleEventClick} />}
+                {view === "month" && <MonthView currentDate={currentDate} agendamentos={agendamentosVisiveis} onEventClick={handleEventClick} onDayClick={(date) => { setCurrentDate(date); setView("day"); }} />}
+                {view === "week" && <WeekView currentDate={currentDate} agendamentos={agendamentosVisiveis} onEventClick={handleEventClick} />}
+                {view === "day" && <DayView currentDate={currentDate} agendamentos={agendamentosVisiveis} onEventClick={handleEventClick} />}
               </motion.div>
 
-              <UpcomingAppointmentsPanel agendamentos={agendamentos || []} onEventClick={handleEventClick} />
+              <UpcomingAppointmentsPanel agendamentos={agendamentosVisiveis} onEventClick={handleEventClick} />
             </div>
           </TabsContent>
 
@@ -151,8 +227,15 @@ const UnitPanel = () => {
           </TabsContent>
         </Tabs>
 
-        <EventDetailDialog event={selectedEvent} open={dialogOpen} onOpenChange={setDialogOpen} suggestions={suggestions} />
+        <EventDetailDialog
+          event={selectedEvent}
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          suggestions={suggestions}
+          agendamentos={agendamentos || []}
+        />
         <CreateAppointmentDialog open={createOpen} onOpenChange={setCreateOpen} suggestions={suggestions} />
+        <CategoriasDialog open={categoriasOpen} onOpenChange={setCategoriasOpen} />
       </div>
     </div>
   );

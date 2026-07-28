@@ -25,6 +25,12 @@ export interface UnitConfig {
   atendentes?: boolean;  // cadastro de atendentes (alimenta o dropdown de responsável)
   nameCol?: string;      // coluna física do nome ao INSERIR (default "Nome")
   phoneCol?: string;     // coluna física do telefone ao INSERIR (default "Número")
+  busca?: boolean;       // barra de busca de paciente (nome/telefone) na aba Agenda
+  editarData?: boolean;  // editar data/horário no modal (+ propagar às sessões futuras)
+  addCategorias?: boolean; // cadastro de categorias extras pela UI (tabela painel_categorias)
+  // Cor por profissional (Resp. atendimento): primeiro nome -> cor da paleta
+  // (ver src/lib/profissional-cores.ts). Match por prefixo, sem acento/caixa.
+  cores?: Record<string, string>;
 }
 
 export interface Unit {
@@ -104,6 +110,18 @@ export const UNITS: Unit[] = [
       atendentes: true,
       nameCol: "Noem",
       phoneCol: "Telefone",
+      busca: true,
+      editarData: true,
+      addCategorias: true,
+      // Cores pedidas pela clínica (2026-07-28). A tabela guarda o nome completo
+      // ("Nice oliveira", "Pedro Igo Lopes Ribeiro"...), o match é por prefixo.
+      cores: {
+        Nice: "vermelho",
+        Elis: "amarelo",
+        Lenisa: "roxo",
+        Pedro: "azul",
+        Pietra: "verde",
+      },
     } },
   { slug: "campo-belo",            label: "Campo Belo",                    table: "Agendamento_Campo_Belo",             respStyle: "accented" },
   // OdontoCompany: rede odontológica (franquia). Mesmo layout das clínicas de

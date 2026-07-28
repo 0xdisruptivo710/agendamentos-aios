@@ -6,6 +6,8 @@ import { CalendarDays, Phone, User, CheckCircle, AlertCircle, Clock, Sparkles, B
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 import { deriveStatus, TONE_BORDER, type StatusTone } from "@/lib/agendamento-status";
+import { corDoProfissional } from "@/lib/profissional-cores";
+import { useUnit } from "@/context/UnitContext";
 
 interface DayViewProps {
   currentDate: Date;
@@ -22,6 +24,7 @@ const TONE_ICON: Record<StatusTone, { Icon: typeof Clock; className: string }> =
 };
 
 export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProps) {
+  const cores = useUnit().config?.cores;
   const dayEvents = useMemo(() => {
     const key = dayKeyFromDate(currentDate);
     return agendamentos.filter((a) => a.dayKey === key);
@@ -47,6 +50,7 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
           {dayEvents.map((event, i) => {
             const status = deriveStatus(event);
             const { Icon: StatusIcon, className: statusIconClass } = TONE_ICON[status.tone];
+            const prof = corDoProfissional(cores, event.Responsavel_Atendimento);
             return (
             <motion.button
               key={event.id}
@@ -71,6 +75,12 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
                     </div>
                   )}
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    {prof && (
+                      <div className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${prof.chip}`}>
+                        <span className={`h-2 w-2 rounded-full ${prof.dot}`} />
+                        <span>{prof.key}</span>
+                      </div>
+                    )}
                     {event.Procedimento && (
                       <div className="inline-flex items-center gap-1 rounded-full bg-green-400/15 px-2 py-0.5 text-[10px] font-semibold text-green-500">
                         <Sparkles className="h-3 w-3" />

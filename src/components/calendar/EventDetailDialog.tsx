@@ -1,14 +1,17 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles, CalendarCheck, UserCheck, Building2, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { useUpdateAgendamento, useDeleteAgendamento } from "@/hooks/useAgendamentos";
+import { useUpdateAgendamento, useDeleteAgendamento, useReagendarSessoes } from "@/hooks/useAgendamentos";
+import { useCategorias, mergeCategorias } from "@/hooks/useCategorias";
+import { buildDataString, findFutureSiblings, shiftSessao } from "@/lib/agendamento-reagendar";
 import { useUnit } from "@/context/UnitContext";
 import {
   deriveStatus,
@@ -36,6 +39,9 @@ interface EventDetailDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   suggestions?: EventSuggestions;
+  // Lista completa da unidade — usada só pela edição de data/horário
+  // (config.editarData) para achar as sessões futuras da mesma recorrência.
+  agendamentos?: Agendamento[];
 }
 
 const TONE_ICON: Record<StatusTone, typeof CheckCircle> = {
@@ -93,7 +99,7 @@ function Segmented({ value, options, onChange }: { value: string; options: SegOp
   );
 }
 
-export function EventDetailDialog({ event, open, onOpenChange, suggestions }: EventDetailDialogProps) {
+export function EventDetailDialog({ event, open, onOpenChange, suggestions, agendamentos }: EventDetailDialogProps) {
   const cfg = useUnit().config;
   const [notes, setNotes] = useState("");
   const [valor, setValor] = useState<string>("");
@@ -105,9 +111,14 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
   const [origem, setOrigem] = useState<string>("");
   const [presenca, setPresenca] = useState<string>("");
   const [justificativa, setJustificativa] = useState<string>("");
+  const [dataEdit, setDataEdit] = useState<string>("");   // "yyyy-MM-dd"
+  const [horaEdit, setHoraEdit] = useState<string>("");   // "HH:mm"
+  const [aplicarFuturas, setAplicarFuturas] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const updateMutation = useUpdateAgendamento();
   const deleteMutation = useDeleteAgendamento();
+  const reagendarMutation = useReagendarSessoes();
+  const { data: categoriasExtras } = useCategorias();
 
   useEffect(() => {
     if (event) {
@@ -124,15 +135,32 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
       setOrigem(event.Origem || (cfg?.origem ? guessOrigem(event.Procedimento) ?? "" : ""));
       setPresenca(event.Presenca || "");
       setJustificativa(event.Justificativa || "");
+      setDataEdit(event.parsedDate ? format(event.parsedDate, "yyyy-MM-dd") : "");
+      setHoraEdit(event.parsedDate ? format(event.parsedDate, "HH:mm") : "");
+      setAplicarFuturas(false);
     }
   }, [event, cfg?.origem]);
 
+  // Sessões futuras da mesma recorrência (mesmo paciente, dia da semana e
+  // horário) — alvo do "aplicar às sessões futuras" da edição de data.
+  const sessoesFuturas = useMemo(
+    () => (cfg?.editarData && event && agendamentos ? findFutureSiblings(event, agendamentos) : []),
+    [cfg?.editarData, event, agendamentos],
+  );
+
   if (!event) return null;
 
-  const categorias = cfg?.categorias ?? ["Avaliação", "Agendamento"];
+  const categorias = mergeCategorias(cfg?.categorias ?? ["Avaliação", "Agendamento"], categoriasExtras);
+  // Valor legado que saiu da lista (ex.: categoria removida) continua visível.
+  if (tipo && !categorias.includes(tipo)) categorias.push(tipo);
   const status = deriveStatus(event);
   const StatusIcon = TONE_ICON[status.tone];
   const parsedDate = event.parsedDate;
+
+  // A data/hora do formulário difere da gravada? (só com ambos preenchidos)
+  const origData = parsedDate ? format(parsedDate, "yyyy-MM-dd") : "";
+  const origHora = parsedDate ? format(parsedDate, "HH:mm") : "";
+  const dataAlterada = !!cfg?.editarData && !!dataEdit && !!horaEdit && (dataEdit !== origData || horaEdit !== origHora);
 
   const presencaOptions: SegOption[] = [
     { value: PRESENCA.COMPARECEU, label: "Compareceu", activeClass: ACTIVE_TONE.success },
@@ -168,10 +196,40 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
         // Justificativa só faz sentido em falta justificada.
         updates.Justificativa = presenca === PRESENCA.FALTOU_JUSTIFICADA ? justificativa || null : null;
       }
+      // Edição de data/horário (config.editarData): só entra no update quando o
+      // formulário difere do gravado, para não reescrever Data à toa.
+      if (dataAlterada) {
+        const novaData = buildDataString(dataEdit, horaEdit);
+        if (!novaData) {
+          toast.error("Data ou horário inválido");
+          return;
+        }
+        updates.Data = novaData;
+      }
       await updateMutation.mutateAsync({ id: event.id, updates });
-      toast.success("Agendamento atualizado!");
+
+      // Propaga o deslocamento (dia da semana + horário) às sessões futuras da
+      // recorrência, mantendo cada uma na própria semana.
+      if (dataAlterada && aplicarFuturas && sessoesFuturas.length > 0 && parsedDate) {
+        const [y, m, d] = dataEdit.split("-").map(Number);
+        const delta = new Date(y, m - 1, d).getDay() - parsedDate.getDay();
+        const items = sessoesFuturas
+          .map((s) => ({ id: s.id, data: shiftSessao(s, delta, horaEdit) }))
+          .filter((i): i is { id: number; data: string } => !!i.data);
+        const { updated, conflicts } = await reagendarMutation.mutateAsync(items);
+        toast.success(
+          `Agendamento atualizado! ${updated} ${updated === 1 ? "sessão futura remarcada" : "sessões futuras remarcadas"}.` +
+            (conflicts > 0 ? ` ${conflicts} não ${conflicts === 1 ? "movida" : "movidas"} (horário já ocupado).` : ""),
+        );
+      } else {
+        toast.success("Agendamento atualizado!");
+      }
     } catch (e: any) {
-      toast.error("Erro ao salvar" + (e?.message ? ": " + e.message : ""));
+      if (e?.code === "23505") {
+        toast.error("Já existe uma sessão desse paciente nesse dia e horário");
+      } else {
+        toast.error("Erro ao salvar" + (e?.message ? ": " + e.message : ""));
+      }
     }
   };
 
@@ -227,15 +285,58 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
             </div>
           </div>
 
-          <div className="glass-card rounded-xl p-3">
-            <div className="mb-1 flex items-center gap-2">
-              <Clock className="h-4 w-4 text-primary" />
-              <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Data</span>
+          {!cfg?.editarData ? (
+            <div className="glass-card rounded-xl p-3">
+              <div className="mb-1 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Data</span>
+              </div>
+              <p className="text-sm font-bold capitalize text-foreground">
+                {parsedDate ? format(parsedDate, "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR }) : "Data inválida"}
+              </p>
             </div>
-            <p className="text-sm font-bold capitalize text-foreground">
-              {parsedDate ? format(parsedDate, "dd 'de' MMMM 'de' yyyy 'às' HH:mm", { locale: ptBR }) : "Data inválida"}
-            </p>
-          </div>
+          ) : (
+            <div className="glass-card rounded-xl p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <Clock className="h-4 w-4 text-primary" />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Data e horário</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  type="date"
+                  value={dataEdit}
+                  onChange={(e) => setDataEdit(e.target.value)}
+                  className="border-border bg-secondary/50"
+                />
+                <Input
+                  type="time"
+                  value={horaEdit}
+                  onChange={(e) => setHoraEdit(e.target.value)}
+                  className="border-border bg-secondary/50"
+                />
+              </div>
+              {dataAlterada && sessoesFuturas.length > 0 && (
+                <label className="mt-2.5 flex cursor-pointer items-start gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                  <Checkbox
+                    checked={aplicarFuturas}
+                    onCheckedChange={(v) => setAplicarFuturas(v === true)}
+                    className="mt-0.5"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Aplicar também às{" "}
+                    <span className="font-semibold text-foreground">{sessoesFuturas.length}</span>{" "}
+                    {sessoesFuturas.length === 1 ? "sessão futura" : "sessões futuras"} deste paciente no mesmo dia e horário
+                    (muda o dia da semana e o horário, mantendo cada sessão na própria semana).
+                  </span>
+                </label>
+              )}
+              {dataAlterada && (
+                <p className="mt-2 text-[11px] text-primary">
+                  A alteração só é gravada ao clicar em "Salvar alterações".
+                </p>
+              )}
+            </div>
+          )}
 
           {/* Registro de presença/falta (unidades com config.presenca) */}
           {cfg?.presenca && (
@@ -368,9 +469,13 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions }: Ev
               placeholder="Escreva suas anotações sobre este agendamento..."
               className="min-h-[100px] resize-none border-border bg-secondary/50 text-foreground placeholder:text-muted-foreground/40 focus-visible:ring-primary/40"
             />
-            <Button onClick={handleSave} disabled={updateMutation.isPending} className="w-full bg-primary text-primary-foreground font-bold hover:bg-primary/90">
+            <Button
+              onClick={handleSave}
+              disabled={updateMutation.isPending || reagendarMutation.isPending}
+              className="w-full bg-primary text-primary-foreground font-bold hover:bg-primary/90"
+            >
               <Save className="mr-2 h-4 w-4" />
-              {updateMutation.isPending ? "Salvando..." : "Salvar alterações"}
+              {updateMutation.isPending || reagendarMutation.isPending ? "Salvando..." : "Salvar alterações"}
             </Button>
           </div>
 

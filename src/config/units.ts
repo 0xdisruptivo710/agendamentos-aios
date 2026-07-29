@@ -61,6 +61,14 @@ const ODONTOCOMPANY_CONFIG: UnitConfig = {
   criar: true,
   excluir: true,
   atendentes: true,
+  // Pacote Fisio Vida replicado (2026-07-29): busca de paciente, edição de
+  // data/horário (com propagação às sessões futuras da recorrência) e cadastro
+  // de categorias/procedimentos pela UI. Registros são POR SLUG (painel_*),
+  // então cada agenda (VH / SR / geral) tem sua própria lista.
+  busca: true,
+  editarData: true,
+  addCategorias: true,
+  addProcedimentos: true,
 };
 
 export const UNITS: Unit[] = [

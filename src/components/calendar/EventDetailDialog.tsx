@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -117,6 +117,10 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const [horaEdit, setHoraEdit] = useState<string>("");   // "HH:mm"
   const [aplicarFuturas, setAplicarFuturas] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Última presença JÁ NOTIFICADA ao n8n (NPS/falta). Ref, e não event.Presenca,
+  // porque o objeto `event` fica stale após o 1º save (o pai mantém a referência
+  // selecionada) — comparar com ele reenviaria a mensagem a cada Salvar.
+  const presencaNotificada = useRef<string | null>(null);
   const updateMutation = useUpdateAgendamento();
   const deleteMutation = useDeleteAgendamento();
   const reagendarMutation = useReagendarSessoes();
@@ -140,6 +144,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
       setDataEdit(event.parsedDate ? format(event.parsedDate, "yyyy-MM-dd") : "");
       setHoraEdit(event.parsedDate ? format(event.parsedDate, "HH:mm") : "");
       setAplicarFuturas(false);
+      presencaNotificada.current = event.Presenca ?? null;
     }
   }, [event, cfg?.origem]);
 
@@ -220,13 +225,12 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
         }
         updates.Data = novaData;
       }
-      const presencaAnterior = event.Presenca ?? null;
       await updateMutation.mutateAsync({ id: event.id, updates });
 
       // NPS / mensagem de falta via n8n (config.webhookPresenca): dispara só
-      // quando a presença MUDOU para um valor — salvar de novo com a mesma
-      // presença não reenvia mensagem ao paciente.
-      if (cfg?.presenca && presenca && presenca !== presencaAnterior) {
+      // quando a presença MUDOU para um valor ainda não notificado — salvar de
+      // novo com a mesma presença não reenvia mensagem ao paciente.
+      if (cfg?.presenca && presenca && presenca !== presencaNotificada.current) {
         firePainelWebhook(cfg?.webhookPresenca, {
           evento: "presenca",
           unidade: unit.slug,
@@ -235,6 +239,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
           telefone: event["Número"],
           data: event.Data,
         });
+        presencaNotificada.current = presenca;
       }
 
       // Propaga o deslocamento (dia da semana + horário) às sessões futuras da

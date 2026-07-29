@@ -10,7 +10,8 @@ import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useUnit } from "@/context/UnitContext";
-import { useCreateAgendamentos } from "@/hooks/useAgendamentos";
+import { useAgendamentos, useCreateAgendamentos } from "@/hooks/useAgendamentos";
+import { firePainelWebhook } from "@/lib/painel-webhook";
 import { mergeCategorias, useCategorias } from "@/hooks/useCategorias";
 import { ORIGEM_OPCOES } from "@/lib/agendamento-status";
 import { generateOccurrences, normalizePhoneBR, singleOccurrence, WEEKDAYS } from "@/lib/agendamento-create";
@@ -26,8 +27,12 @@ interface CreateAppointmentDialogProps {
 const today = () => format(new Date(), "yyyy-MM-dd");
 
 export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: CreateAppointmentDialogProps) {
-  const cfg = useUnit().config;
+  const unit = useUnit();
+  const cfg = unit.config;
   const createMutation = useCreateAgendamentos();
+  // Lista da unidade (cache do React Query) — usada só pela checagem de
+  // horário único (config.horarioUnico).
+  const { data: agendamentos } = useAgendamentos();
 
   const [nome, setNome] = useState("");
   const [telefone, setTelefone] = useState("");
@@ -71,6 +76,15 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
     if (!tel) return toast.error("Telefone inválido");
     if (recorrente && weekdays.length === 0) return toast.error("Selecione ao menos um dia da semana");
     if (datas.length === 0) return toast.error("Nenhuma data para agendar");
+    // Horário único (config.horarioUnico): bloqueia agendar em cima de horário
+    // já ocupado por outro paciente (agendamento não cancelado conta como ocupado).
+    if (cfg?.horarioUnico) {
+      const ocupados = new Set(
+        (agendamentos ?? []).filter((a) => !a.Cancelamento && a.Data).map((a) => a.Data as string),
+      );
+      const conflito = datas.find((d) => ocupados.has(d));
+      if (conflito) return toast.error(`Horário já ocupado (${conflito}). Escolha outro horário.`);
+    }
     try {
       const { inserted, skipped } = await createMutation.mutateAsync({
         nome: nome.trim(),
@@ -89,6 +103,17 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
         `${inserted} agendamento${inserted > 1 ? "s" : ""} criado${inserted > 1 ? "s" : ""}` +
           (skipped > 0 ? ` (${skipped} já existia${skipped > 1 ? "m" : ""})` : ""),
       );
+      // Confirmação por WhatsApp via n8n (config.webhookAgendamento) — o n8n
+      // resolve o canal da unidade e envia; falha aqui não afeta a criação.
+      firePainelWebhook(cfg?.webhookAgendamento, {
+        evento: "agendamento_criado",
+        unidade: unit.slug,
+        nome: nome.trim(),
+        telefone: tel,
+        datas,
+        tipo: tipo || null,
+        procedimento: procedimento || null,
+      });
       onOpenChange(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";

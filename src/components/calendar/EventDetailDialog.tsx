@@ -12,6 +12,7 @@ import type { Agendamento } from "@/hooks/useAgendamentos";
 import { useUpdateAgendamento, useDeleteAgendamento, useReagendarSessoes } from "@/hooks/useAgendamentos";
 import { useCategorias, mergeCategorias } from "@/hooks/useCategorias";
 import { buildDataString, findFutureSiblings, shiftSessao } from "@/lib/agendamento-reagendar";
+import { firePainelWebhook } from "@/lib/painel-webhook";
 import { useUnit } from "@/context/UnitContext";
 import {
   deriveStatus,
@@ -100,7 +101,8 @@ function Segmented({ value, options, onChange }: { value: string; options: SegOp
 }
 
 export function EventDetailDialog({ event, open, onOpenChange, suggestions, agendamentos }: EventDetailDialogProps) {
-  const cfg = useUnit().config;
+  const unit = useUnit();
+  const cfg = unit.config;
   const [notes, setNotes] = useState("");
   const [valor, setValor] = useState<string>("");
   const [respAgendamento, setRespAgendamento] = useState("");
@@ -204,9 +206,36 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
           toast.error("Data ou horário inválido");
           return;
         }
+        // Horário único (config.horarioUnico): não deixa MOVER para um horário
+        // já ocupado por outro paciente. (A propagação às sessões futuras segue
+        // reportando conflitos pelo próprio retorno do reagendar.)
+        if (cfg?.horarioUnico) {
+          const ocupado = (agendamentos ?? []).some(
+            (a) => a.id !== event.id && !a.Cancelamento && a.Data === novaData,
+          );
+          if (ocupado) {
+            toast.error("Horário já ocupado por outro paciente. Escolha outro horário.");
+            return;
+          }
+        }
         updates.Data = novaData;
       }
+      const presencaAnterior = event.Presenca ?? null;
       await updateMutation.mutateAsync({ id: event.id, updates });
+
+      // NPS / mensagem de falta via n8n (config.webhookPresenca): dispara só
+      // quando a presença MUDOU para um valor — salvar de novo com a mesma
+      // presença não reenvia mensagem ao paciente.
+      if (cfg?.presenca && presenca && presenca !== presencaAnterior) {
+        firePainelWebhook(cfg?.webhookPresenca, {
+          evento: "presenca",
+          unidade: unit.slug,
+          presenca,
+          nome: event.Nome,
+          telefone: event["Número"],
+          data: event.Data,
+        });
+      }
 
       // Propaga o deslocamento (dia da semana + horário) às sessões futuras da
       // recorrência, mantendo cada uma na própria semana.

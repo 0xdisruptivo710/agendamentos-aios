@@ -32,6 +32,9 @@ export interface UnitConfig {
   // Cor por profissional (Resp. atendimento): primeiro nome -> cor da paleta
   // (ver src/lib/profissional-cores.ts). Match por prefixo, sem acento/caixa.
   cores?: Record<string, string>;
+  horarioUnico?: boolean;      // bloqueia 2+ pacientes no MESMO horário (Data exata)
+  webhookAgendamento?: string; // n8n: confirmação por WhatsApp ao criar agendamento pelo painel
+  webhookPresenca?: string;    // n8n: NPS (Compareceu) / mensagem de falta (Faltou) ao registrar presença
 }
 
 export interface Unit {
@@ -143,10 +146,22 @@ export const UNITS: Unit[] = [
   // "odontocompany" (tabela crua) = visão geral com tudo, inclusive Canal null.
   { slug: "odontocompany",         label: "OdontoCompany (geral)",         table: "Agendamento_odontocompany",          respStyle: "accented",
     config: ODONTOCOMPANY_CONFIG },
+  // Webhooks n8n (workflow HmFP6yiOmuPRw5YJ): agendamento criado no painel ->
+  // confirmação pelo canal da unidade; presença registrada -> NPS ou msg de falta.
+  // A visão geral NÃO tem webhooks de propósito (linha sem canal definido).
   { slug: "odontocompany-vila-helena", label: "OdontoCompany Vila Helena", table: "vw_agendamento_odonto_vila_helena",  respStyle: "accented",
-    config: ODONTOCOMPANY_CONFIG },
+    config: {
+      ...ODONTOCOMPANY_CONFIG,
+      horarioUnico: true, // pedido do cliente: 1 paciente por horário na VH
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_agendamento_vh",
+      webhookPresenca: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_presenca",
+    } },
   { slug: "odontocompany-santa-rosalia", label: "OdontoCompany Santa Rosália", table: "vw_agendamento_odonto_santa_rosalia", respStyle: "accented",
-    config: ODONTOCOMPANY_CONFIG },
+    config: {
+      ...ODONTOCOMPANY_CONFIG,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_agendamento_sr",
+      webhookPresenca: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_presenca",
+    } },
 ];
 
 export function getUnitBySlug(slug: string | undefined): Unit | undefined {

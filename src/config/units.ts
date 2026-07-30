@@ -112,8 +112,12 @@ const FACEDOCTOR_FASE2: UnitConfig = {
 };
 
 export const UNITS: Unit[] = [
+  // Fase 3 (2026-07-30): criar pelo painel dispara confirmação por WhatsApp via
+  // n8n (workflow Agendamento Inteligente da unidade); os crons de lembrete da
+  // unidade agora leem o Supabase, então o que nasce/edita aqui entra no lembrete.
   { slug: "analia",                label: "Face Doctor Anália Franco",     table: "Agendamento_Analia",                 respStyle: "accented",
-    config: FACEDOCTOR_FASE2 },
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_analia" } },
   { slug: "barra",                 label: "Face Doctor Barra da Tijuca",   table: "barradatijucaclinics_agendamento",   respStyle: "ascii" },
   { slug: "botoclinic-riomar",     label: "Botoclinic Riomar",             table: "Agendamento_BotoclinicRiomar",       respStyle: "accented" },
   { slug: "campinas",              label: "Campinas",                      table: "Agendamento_Campinas",               respStyle: "ascii" },
@@ -121,7 +125,8 @@ export const UNITS: Unit[] = [
   { slug: "casa-verde",            label: "Casa Verde",                    table: "Agendamento_CasaVerde",              respStyle: "ascii" },
   { slug: "df-plaza",              label: "DF Plaza",                      table: "Agendamento_DF_Plaza",               respStyle: "ascii" },
   { slug: "dourados",              label: "Face Doctor Dourados",          table: "Agendamento_Dourados",               respStyle: "accented",
-    config: FACEDOCTOR_FASE2 },
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_dourados" } },
   { slug: "dr-colageno",           label: "Dr. Colágeno Piracicaba",       table: "Agendamento_DrColageno_Piracicaba",  respStyle: "ascii" },
   { slug: "dra-ligia",             label: "Dra. Lígia",                    table: "Agendamento_DraLigia",               respStyle: "accented" },
   { slug: "duque-de-caxias",       label: "Duque de Caxias",               table: "Agendamento_Duque de Caxias",        respStyle: "ascii" },

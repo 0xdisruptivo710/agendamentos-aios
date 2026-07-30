@@ -6,6 +6,7 @@ import { Clock3, Sparkles, StickyNote, UserRound } from "lucide-react";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { formatAgendamentoTime, isUpcomingAgendamento } from "@/lib/agendamento-date";
 import { corDoProfissional } from "@/lib/profissional-cores";
+import { useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useUnit } from "@/context/UnitContext";
 
 interface UpcomingAppointmentsPanelProps {
@@ -14,7 +15,7 @@ interface UpcomingAppointmentsPanelProps {
 }
 
 export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: UpcomingAppointmentsPanelProps) {
-  const cores = useUnit().config?.cores;
+  const cores = useCoresProfissionais();
   const upcoming = useMemo(
     () => agendamentos.filter((item) => isUpcomingAgendamento(item.parsedDate)).slice(0, 10),
     [agendamentos],

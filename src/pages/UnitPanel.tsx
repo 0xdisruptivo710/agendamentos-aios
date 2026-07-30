@@ -15,7 +15,7 @@ import { ReportsView } from "@/components/calendar/ReportsView";
 import { UpcomingAppointmentsPanel } from "@/components/calendar/UpcomingAppointmentsPanel";
 import { WeekView } from "@/components/calendar/WeekView";
 import { useAgendamentos, type Agendamento } from "@/hooks/useAgendamentos";
-import { useAtendentes } from "@/hooks/useAtendentes";
+import { useAtendentes, useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useProcedimentos } from "@/hooks/useProcedimentos";
 import { useUnit } from "@/context/UnitContext";
 import { legendaCores, normalizarTexto } from "@/lib/profissional-cores";
@@ -58,8 +58,10 @@ const UnitPanel = () => {
     });
   }, [agendamentos, busca, cfg?.busca]);
 
-  // Legenda de cores por profissional (config.cores).
-  const legenda = useMemo(() => legendaCores(cfg?.cores), [cfg?.cores]);
+  // Legenda de cores por profissional: config.cores + cores definidas na UI
+  // (cadastro de atendentes) — mesmas cores que as views usam nos cards.
+  const coresProfissionais = useCoresProfissionais();
+  const legenda = useMemo(() => legendaCores(coresProfissionais), [coresProfissionais]);
 
   const handlePrev = () => {
     if (view === "month") setCurrentDate((d) => subMonths(d, 1));

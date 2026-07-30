@@ -7,6 +7,7 @@ import type { Agendamento } from "@/hooks/useAgendamentos";
 import { dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 import { deriveStatus, TONE_BORDER, type StatusTone } from "@/lib/agendamento-status";
 import { corDoProfissional } from "@/lib/profissional-cores";
+import { useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useUnit } from "@/context/UnitContext";
 
 interface DayViewProps {
@@ -24,7 +25,7 @@ const TONE_ICON: Record<StatusTone, { Icon: typeof Clock; className: string }> =
 };
 
 export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProps) {
-  const cores = useUnit().config?.cores;
+  const cores = useCoresProfissionais();
   const dayEvents = useMemo(() => {
     const key = dayKeyFromDate(currentDate);
     return agendamentos.filter((a) => a.dayKey === key);

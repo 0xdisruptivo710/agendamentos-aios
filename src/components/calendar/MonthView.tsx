@@ -15,6 +15,7 @@ import type { Agendamento } from "@/hooks/useAgendamentos";
 import { buildDayIndex, dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 import { deriveStatus, type StatusTone } from "@/lib/agendamento-status";
 import { corDoProfissional } from "@/lib/profissional-cores";
+import { useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useUnit } from "@/context/UnitContext";
 
 interface MonthViewProps {
@@ -34,7 +35,7 @@ const TONE_PILL: Record<StatusTone, string> = {
 };
 
 export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick }: MonthViewProps) {
-  const cores = useUnit().config?.cores;
+  const cores = useCoresProfissionais();
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calStart = startOfWeek(monthStart, { locale: ptBR });

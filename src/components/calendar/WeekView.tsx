@@ -6,6 +6,7 @@ import type { Agendamento } from "@/hooks/useAgendamentos";
 import { buildDayIndex, dayKeyFromDate, formatAgendamentoTime } from "@/lib/agendamento-date";
 import { deriveStatus, type StatusTone } from "@/lib/agendamento-status";
 import { corDoProfissional } from "@/lib/profissional-cores";
+import { useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useUnit } from "@/context/UnitContext";
 
 interface WeekViewProps {
@@ -24,7 +25,7 @@ const TONE_STYLE: Record<StatusTone, string> = {
 };
 
 export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewProps) {
-  const cores = useUnit().config?.cores;
+  const cores = useCoresProfissionais();
   const weekStart = startOfWeek(currentDate, { locale: ptBR });
   const weekEnd = endOfWeek(currentDate, { locale: ptBR });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });

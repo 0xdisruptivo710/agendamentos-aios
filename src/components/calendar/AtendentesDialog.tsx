@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { UserPlus, Trash2, Stethoscope, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { useAtendentes, useCreateAtendente, useDeleteAtendente } from "@/hooks/useAtendentes";
+import { useAtendentes, useCreateAtendente, useDeleteAtendente, useSetCorAtendente } from "@/hooks/useAtendentes";
+import { paletaDisponivel } from "@/lib/profissional-cores";
+import { cn } from "@/lib/utils";
+
+const PALETA = paletaDisponivel();
 
 interface AtendentesDialogProps {
   open: boolean;
@@ -15,7 +19,18 @@ export function AtendentesDialog({ open, onOpenChange }: AtendentesDialogProps) 
   const { data: atendentes, isLoading } = useAtendentes();
   const createMutation = useCreateAtendente();
   const deleteMutation = useDeleteAtendente();
+  const corMutation = useSetCorAtendente();
   const [nome, setNome] = useState("");
+
+  // Clicar na cor já marcada limpa (volta a "sem cor").
+  const handleCor = async (id: number, corAtual: string | null, cor: string) => {
+    try {
+      await corMutation.mutateAsync({ id, cor: corAtual === cor ? null : cor });
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      toast.error("Erro ao salvar cor" + (msg ? ": " + msg : ""));
+    }
+  };
 
   const handleAdd = async () => {
     const clean = nome.trim();
@@ -78,19 +93,42 @@ export function AtendentesDialog({ open, onOpenChange }: AtendentesDialogProps) 
             <p className="py-6 text-center text-sm text-muted-foreground">Nenhum atendente cadastrado ainda.</p>
           ) : (
             atendentes.map((a) => (
-              <div key={a.id} className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
-                <span className="flex items-center gap-2 text-sm font-medium text-foreground">
-                  <Stethoscope className="h-3.5 w-3.5 text-primary" /> {a.nome}
+              <div key={a.id} className="flex items-center justify-between gap-2 rounded-lg border border-border bg-card px-3 py-2">
+                <span className="flex min-w-0 items-center gap-2 text-sm font-medium text-foreground">
+                  <Stethoscope className="h-3.5 w-3.5 shrink-0 text-primary" />
+                  <span className="truncate">{a.nome}</span>
                 </span>
-                <button
-                  type="button"
-                  onClick={() => handleRemove(a.id)}
-                  disabled={deleteMutation.isPending}
-                  className="text-muted-foreground transition-colors hover:text-destructive"
-                  aria-label={`Remover ${a.nome}`}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                <span className="flex shrink-0 items-center gap-2">
+                  {/* Cor do profissional na agenda (opcional; clicar de novo limpa) */}
+                  <span className="flex items-center gap-1">
+                    {PALETA.map((c) => (
+                      <button
+                        key={c.nome}
+                        type="button"
+                        onClick={() => handleCor(a.id, a.cor, c.nome)}
+                        disabled={corMutation.isPending}
+                        className={cn(
+                          "h-3.5 w-3.5 rounded-full transition-transform hover:scale-125",
+                          c.dot,
+                          a.cor === c.nome
+                            ? "ring-2 ring-foreground/70 ring-offset-1 ring-offset-card"
+                            : "opacity-40 hover:opacity-100",
+                        )}
+                        aria-label={`Cor ${c.nome} para ${a.nome}`}
+                        title={`Cor ${c.nome}`}
+                      />
+                    ))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleRemove(a.id)}
+                    disabled={deleteMutation.isPending}
+                    className="text-muted-foreground transition-colors hover:text-destructive"
+                    aria-label={`Remover ${a.nome}`}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </span>
               </div>
             ))
           )}

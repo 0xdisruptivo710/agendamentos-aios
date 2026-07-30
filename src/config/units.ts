@@ -74,15 +74,41 @@ const ODONTOCOMPANY_CONFIG: UnitConfig = {
   addProcedimentos: true,
 };
 
+// Fase 1 Face Doctor (pilotos Dourados e Anália Franco, 2026-07-30): só
+// recursos ADITIVOS de painel — busca, edição de data/hora, categorias de
+// estética + cadastros pela UI (categorias/procedimentos/atendentes) e cor
+// por profissional definida no próprio cadastro de atendentes. SEM criar/
+// excluir/presença (Fase 2) e SEM tocar nas automações das unidades.
+const FACEDOCTOR_FASE1: UnitConfig = {
+  categorias: [
+    "Avaliação",
+    "Agendamento",
+    "Botox",
+    "Preenchimento",
+    "Bioestimulador",
+    "Laser / Lavieen",
+    "Ultraformer",
+    "Microagulhamento",
+    "Retorno",
+  ],
+  busca: true,
+  editarData: true,
+  addCategorias: true,
+  addProcedimentos: true,
+  atendentes: true,
+};
+
 export const UNITS: Unit[] = [
-  { slug: "analia",                label: "Face Doctor Anália Franco",     table: "Agendamento_Analia",                 respStyle: "accented" },
+  { slug: "analia",                label: "Face Doctor Anália Franco",     table: "Agendamento_Analia",                 respStyle: "accented",
+    config: FACEDOCTOR_FASE1 },
   { slug: "barra",                 label: "Face Doctor Barra da Tijuca",   table: "barradatijucaclinics_agendamento",   respStyle: "ascii" },
   { slug: "botoclinic-riomar",     label: "Botoclinic Riomar",             table: "Agendamento_BotoclinicRiomar",       respStyle: "accented" },
   { slug: "campinas",              label: "Campinas",                      table: "Agendamento_Campinas",               respStyle: "ascii" },
   { slug: "campolim",              label: "Campolim",                      table: "Agendamento_Campolim",               respStyle: "ascii" },
   { slug: "casa-verde",            label: "Casa Verde",                    table: "Agendamento_CasaVerde",              respStyle: "ascii" },
   { slug: "df-plaza",              label: "DF Plaza",                      table: "Agendamento_DF_Plaza",               respStyle: "ascii" },
-  { slug: "dourados",              label: "Face Doctor Dourados",          table: "Agendamento_Dourados",               respStyle: "accented" },
+  { slug: "dourados",              label: "Face Doctor Dourados",          table: "Agendamento_Dourados",               respStyle: "accented",
+    config: FACEDOCTOR_FASE1 },
   { slug: "dr-colageno",           label: "Dr. Colágeno Piracicaba",       table: "Agendamento_DrColageno_Piracicaba",  respStyle: "ascii" },
   { slug: "dra-ligia",             label: "Dra. Lígia",                    table: "Agendamento_DraLigia",               respStyle: "accented" },
   { slug: "duque-de-caxias",       label: "Duque de Caxias",               table: "Agendamento_Duque de Caxias",        respStyle: "ascii" },

@@ -47,6 +47,25 @@ export function corDoProfissional(
   return null;
 }
 
+// Opções de cor para o seletor da UI (cadastro de atendentes).
+export function paletaDisponivel(): { nome: string; dot: string }[] {
+  return Object.entries(PALETA).map(([nome, p]) => ({ nome, dot: p.dot }));
+}
+
+// Junta as cores fixas do config com as definidas pela UI no cadastro de
+// atendentes (painel_atendentes.cor). A cor da UI tem precedência quando o
+// mesmo profissional aparece nos dois lugares (chave = nome cadastrado).
+export function mesclarCores(
+  base: UnitConfig["cores"],
+  atendentes: { nome: string; cor?: string | null }[] | undefined,
+): UnitConfig["cores"] {
+  const out: Record<string, string> = { ...(base ?? {}) };
+  for (const a of atendentes ?? []) {
+    if (a.cor && PALETA[norm(a.cor)]) out[a.nome] = a.cor;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 // Lista (nome -> cor) para renderizar a legenda acima da agenda.
 export function legendaCores(cores: UnitConfig["cores"]): ProfColor[] {
   if (!cores) return [];

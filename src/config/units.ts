@@ -98,9 +98,22 @@ const FACEDOCTOR_FASE1: UnitConfig = {
   atendentes: true,
 };
 
+// Fase 2 Face Doctor (pilotos, 2026-07-30): criar/excluir agendamento pelo
+// painel + "Paciente agendou?" + registro de presença/falta. Colunas de
+// suporte: migração facedoctor_fase2_pilotos_dourados_analia. Sem `origem`
+// (Convênio × Particular não se aplica a estética). Criar pelo painel ainda
+// NÃO dispara confirmação/lembrete (os lembretes FD leem a planilha — Fase 3).
+const FACEDOCTOR_FASE2: UnitConfig = {
+  ...FACEDOCTOR_FASE1,
+  agendou: true,
+  presenca: true,
+  criar: true,
+  excluir: true,
+};
+
 export const UNITS: Unit[] = [
   { slug: "analia",                label: "Face Doctor Anália Franco",     table: "Agendamento_Analia",                 respStyle: "accented",
-    config: FACEDOCTOR_FASE1 },
+    config: FACEDOCTOR_FASE2 },
   { slug: "barra",                 label: "Face Doctor Barra da Tijuca",   table: "barradatijucaclinics_agendamento",   respStyle: "ascii" },
   { slug: "botoclinic-riomar",     label: "Botoclinic Riomar",             table: "Agendamento_BotoclinicRiomar",       respStyle: "accented" },
   { slug: "campinas",              label: "Campinas",                      table: "Agendamento_Campinas",               respStyle: "ascii" },
@@ -108,7 +121,7 @@ export const UNITS: Unit[] = [
   { slug: "casa-verde",            label: "Casa Verde",                    table: "Agendamento_CasaVerde",              respStyle: "ascii" },
   { slug: "df-plaza",              label: "DF Plaza",                      table: "Agendamento_DF_Plaza",               respStyle: "ascii" },
   { slug: "dourados",              label: "Face Doctor Dourados",          table: "Agendamento_Dourados",               respStyle: "accented",
-    config: FACEDOCTOR_FASE1 },
+    config: FACEDOCTOR_FASE2 },
   { slug: "dr-colageno",           label: "Dr. Colágeno Piracicaba",       table: "Agendamento_DrColageno_Piracicaba",  respStyle: "ascii" },
   { slug: "dra-ligia",             label: "Dra. Lígia",                    table: "Agendamento_DraLigia",               respStyle: "accented" },
   { slug: "duque-de-caxias",       label: "Duque de Caxias",               table: "Agendamento_Duque de Caxias",        respStyle: "ascii" },

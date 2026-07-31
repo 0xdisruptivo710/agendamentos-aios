@@ -32,6 +32,11 @@ export interface Agendamento {
   Origem: string | null;         // "Convênio"/"Particular"
   Presenca: string | null;       // "Compareceu"/"Faltou (justificada)"/"Faltou (não justificada)"
   Justificativa: string | null;  // texto livre da falta justificada
+  // Número WhatsApp da unidade (só nas tabelas multi-unidade, hoje OdontoCompany).
+  // Somente leitura: quem escreve é o DEFAULT da view por unidade. É o que
+  // identifica a unidade nos webhooks — o slug não serve, porque a agenda geral
+  // atende as duas clínicas.
+  Canal: string | null;
 }
 
 const RESP_AG: Record<RespStyle, string> = {
@@ -78,6 +83,7 @@ function fromRow(row: Record<string, any>): Agendamento {
     Origem: row["Origem"] ?? null,
     Presenca: row["Presenca"] ?? null,
     Justificativa: row["Justificativa"] ?? null,
+    Canal: row["Canal"] ?? null,
   };
 }
 

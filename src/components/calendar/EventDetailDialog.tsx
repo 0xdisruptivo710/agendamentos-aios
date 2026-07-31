@@ -227,18 +227,29 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
       }
       await updateMutation.mutateAsync({ id: event.id, updates });
 
-      // NPS / mensagem de falta via n8n (config.webhookPresenca): dispara só
-      // quando a presença MUDOU para um valor ainda não notificado — salvar de
-      // novo com a mesma presença não reenvia mensagem ao paciente.
+      // Presença via n8n: dispara só quando a presença MUDOU para um valor ainda
+      // não notificado — salvar de novo com a mesma presença não reenvia nada.
+      // Dois webhooks INDEPENDENTES com o mesmo payload:
+      //   webhookPresenca     -> NPS (Compareceu) / mensagem de falta
+      //   webhookPresencaCard -> card do paciente no funil do WTS
+      // Separados de propósito: falha na sincronização do card não pode atrasar
+      // nem impedir a mensagem ao paciente.
       if (cfg?.presenca && presenca && presenca !== presencaNotificada.current) {
-        firePainelWebhook(cfg?.webhookPresenca, {
+        const payload = {
           evento: "presenca",
           unidade: unit.slug,
+          // Quem resolve a unidade no WTS é o canal, não o slug: a agenda geral
+          // atende as duas clínicas.
+          canal: event.Canal,
           presenca,
           nome: event.Nome,
           telefone: event["Número"],
-          data: event.Data,
-        });
+          // Data EFETIVA: se o mesmo Salvar também remarcou, a linha no banco já
+          // é a nova, e é por (Número, Data) que o n8n acha a linha de volta.
+          data: updates.Data ?? event.Data,
+        };
+        firePainelWebhook(cfg?.webhookPresenca, payload);
+        firePainelWebhook(cfg?.webhookPresencaCard, payload);
         presencaNotificada.current = presenca;
       }
 

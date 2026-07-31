@@ -35,6 +35,11 @@ export interface UnitConfig {
   horarioUnico?: boolean;      // bloqueia 2+ pacientes no MESMO horário (Data exata)
   webhookAgendamento?: string; // n8n: confirmação por WhatsApp ao criar agendamento pelo painel
   webhookPresenca?: string;    // n8n: NPS (Compareceu) / mensagem de falta (Faltou) ao registrar presença
+  // n8n: sincroniza a presença com o card do paciente no funil do WTS
+  // (Compareceu = ganho + cópia no painel Doutores; Faltou = coluna Faltou).
+  // Webhook SEPARADO do de presença de propósito: falha na sincronização do
+  // card nunca pode atrasar nem impedir a mensagem ao paciente.
+  webhookPresencaCard?: string;
 }
 
 export interface Unit {
@@ -72,6 +77,12 @@ const ODONTOCOMPANY_CONFIG: UnitConfig = {
   editarData: true,
   addCategorias: true,
   addProcedimentos: true,
+  // Presença -> card no funil do WTS. Fica no config COMPARTILHADO (e não por
+  // unidade como os outros webhooks) porque o destino é resolvido pelo `canal`
+  // que vai no payload, não pela agenda de origem. Por isso a visão geral, que
+  // não tem webhook de mensagem, também sincroniza card.
+  webhookPresencaCard:
+    "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_presenca_card",
 };
 
 // Fase 1 Face Doctor (pilotos Dourados e Anália Franco, 2026-07-30): só

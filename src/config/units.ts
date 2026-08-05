@@ -148,7 +148,13 @@ export const UNITS: Unit[] = [
   { slug: "itupeva",               label: "Face Doctor Itupeva",           table: "itupevaclinics_agendamento",         respStyle: "ascii" },
   { slug: "londrina",              label: "Face Doctor Londrina",          table: "Agendamento_Londrina",               respStyle: "ascii" },
   { slug: "macae",                 label: "Face Doctor Macaé",             table: "Agendamento_Macae",                  respStyle: "accented" },
-  { slug: "perdizes",              label: "Perdizes",                      table: "Agendamento_Perdizes",               respStyle: "accented" },
+  // Fase 2+3 direto (2026-08-05): Perdizes nasceu do zero já na arquitetura
+  // final — painel completo + confirmação/lembretes n8n lendo o Supabase
+  // (workflow Agendamento Inteligente - Perdizes). Agenda alimentada SÓ pelo
+  // painel (sem webhook de entrada do WTS, decisão do usuário).
+  { slug: "perdizes",              label: "Face Doctor Perdizes",          table: "Agendamento_Perdizes",               respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_perdizes" } },
   { slug: "recreio",               label: "Recreio dos Bandeirantes",      table: "Agendamento_Recreiodosbandeirantes", respStyle: "accented" },
   { slug: "smile-skin",            label: "Smile Skin",                    table: "Agendamento_Smile Skin",             respStyle: "ascii" },
   { slug: "vanda",                 label: "Vanda Santos",                  table: "Agendamento_Vanda",                  respStyle: "accented" },

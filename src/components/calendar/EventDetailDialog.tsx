@@ -255,19 +255,46 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
 
       // Propaga o deslocamento (dia da semana + horário) às sessões futuras da
       // recorrência, mantendo cada uma na própria semana.
+      let mudancasFuturas: { de: string; para: string }[] = [];
       if (dataAlterada && aplicarFuturas && sessoesFuturas.length > 0 && parsedDate) {
         const [y, m, d] = dataEdit.split("-").map(Number);
         const delta = new Date(y, m - 1, d).getDay() - parsedDate.getDay();
-        const items = sessoesFuturas
-          .map((s) => ({ id: s.id, data: shiftSessao(s, delta, horaEdit) }))
-          .filter((i): i is { id: number; data: string } => !!i.data);
-        const { updated, conflicts } = await reagendarMutation.mutateAsync(items);
+        const pares = sessoesFuturas
+          .map((s) => ({ id: s.id, de: s.Data, para: shiftSessao(s, delta, horaEdit) }))
+          .filter((p): p is { id: number; de: string; para: string } => !!p.de && !!p.para);
+        const { updated, conflicts } = await reagendarMutation.mutateAsync(
+          pares.map((p) => ({ id: p.id, data: p.para })),
+        );
+        // Espelho Infosoft: as futuras só entram quando TODAS moveram — com
+        // conflito não dá pra saber qual ficou, e mover errado no ERP é pior
+        // que a recepção resolver a pendência aqui.
+        if (conflicts === 0) mudancasFuturas = pares.map(({ de, para }) => ({ de, para }));
         toast.success(
           `Agendamento atualizado! ${updated} ${updated === 1 ? "sessão futura remarcada" : "sessões futuras remarcadas"}.` +
             (conflicts > 0 ? ` ${conflicts} não ${conflicts === 1 ? "movida" : "movidas"} (horário já ocupado).` : ""),
         );
       } else {
         toast.success("Agendamento atualizado!");
+      }
+
+      // Espelho Infosoft (config.webhookInfosoft): reagendar = cancelar e
+      // recriar no ERP. O n8n acha a autorização pelo espelho (Número + Data
+      // antiga); os dados de paciente vão junto p/ recriar sem novo lookup.
+      if (dataAlterada && updates.Data && event.Data) {
+        firePainelWebhook(cfg?.webhookInfosoft, {
+          evento: "agendamento_reagendado",
+          unidade: unit.slug,
+          nome: event.Nome,
+          telefone: event["Número"],
+          mudancas: [{ de: event.Data, para: updates.Data }, ...mudancasFuturas],
+          tipo: tipo || null,
+          procedimento: procedimento || null,
+          responsavel: respAtendimento || null,
+          cpf: event.CPF,
+          nascimento: event.Nascimento,
+          sexo: event.Sexo,
+          email: event.Email,
+        });
       }
     } catch (e: any) {
       if (e?.code === "23505") {
@@ -281,6 +308,15 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const handleDelete = async () => {
     try {
       await deleteMutation.mutateAsync(event.id);
+      // Espelho Infosoft: cancela a autorização vinculada. O vínculo mora na
+      // tabela-espelho do n8n, então funciona mesmo com a linha já apagada.
+      firePainelWebhook(cfg?.webhookInfosoft, {
+        evento: "agendamento_excluido",
+        unidade: unit.slug,
+        nome: event.Nome,
+        telefone: event["Número"],
+        data: event.Data,
+      });
       toast.success("Agendamento excluído");
       onOpenChange(false);
     } catch (e) {

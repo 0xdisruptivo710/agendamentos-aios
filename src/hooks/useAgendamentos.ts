@@ -37,6 +37,12 @@ export interface Agendamento {
   // identifica a unidade nos webhooks — o slug não serve, porque a agenda geral
   // atende as duas clínicas.
   Canal: string | null;
+  // Dados de paciente exigidos pelo POST /agendar do Infosoft (só nas unidades
+  // com config.infosoft; coletados opcionalmente no criar).
+  CPF: string | null;
+  Nascimento: string | null; // "yyyy-MM-dd" (input type=date)
+  Sexo: string | null;       // "F" | "M"
+  Email: string | null;
 }
 
 const RESP_AG: Record<RespStyle, string> = {
@@ -84,6 +90,10 @@ function fromRow(row: Record<string, any>): Agendamento {
     Presenca: row["Presenca"] ?? null,
     Justificativa: row["Justificativa"] ?? null,
     Canal: row["Canal"] ?? null,
+    CPF: row["CPF"] ?? null,
+    Nascimento: row["Nascimento"] ?? null,
+    Sexo: row["Sexo"] ?? null,
+    Email: row["Email"] ?? null,
   };
 }
 
@@ -154,6 +164,12 @@ export interface NewAgendamentoInput {
   procedimento?: string | null;
   origem?: string | null;
   responsavelAtendimento?: string | null;
+  // Dados de paciente do espelho Infosoft (config.infosoft) — o modal só os
+  // envia nessas unidades, então nenhuma outra tabela recebe as colunas.
+  cpf?: string | null;
+  nascimento?: string | null;
+  sexo?: string | null;
+  email?: string | null;
 }
 
 // Insere as linhas uma a uma (tolerante a duplicata: o índice único
@@ -176,6 +192,10 @@ export function useCreateAgendamentos() {
       if (input.procedimento) base["Procedimento"] = input.procedimento;
       if (input.origem) base["Origem"] = input.origem;
       if (input.responsavelAtendimento) base[RESP_AT[unit.respStyle]] = input.responsavelAtendimento;
+      if (input.cpf) base["CPF"] = input.cpf;
+      if (input.nascimento) base["Nascimento"] = input.nascimento;
+      if (input.sexo) base["Sexo"] = input.sexo;
+      if (input.email) base["Email"] = input.email;
 
       let inserted = 0;
       let skipped = 0;

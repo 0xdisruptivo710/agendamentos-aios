@@ -40,6 +40,14 @@ export interface UnitConfig {
   // Webhook SEPARADO do de presença de propósito: falha na sincronização do
   // card nunca pode atrasar nem impedir a mensagem ao paciente.
   webhookPresencaCard?: string;
+  // Espelho no ERP Infosoft ilife. `infosoft` liga os campos opcionais de
+  // paciente (CPF/nascimento/sexo/e-mail — obrigatórios no POST /agendar do
+  // ERP) no modal de criação; `webhookInfosoft` recebe os 3 eventos
+  // (agendamento_criado / agendamento_reagendado / agendamento_excluido) numa
+  // URL só — o n8n resolve cadastro, de-para e chama o ERP. Separado do
+  // webhookAgendamento: falha no espelho nunca afeta a mensagem ao paciente.
+  infosoft?: boolean;
+  webhookInfosoft?: string;
 }
 
 export interface Unit {
@@ -154,7 +162,11 @@ export const UNITS: Unit[] = [
   // painel (sem webhook de entrada do WTS, decisão do usuário).
   { slug: "perdizes",              label: "Face Doctor Perdizes",          table: "Agendamento_Perdizes",               respStyle: "accented",
     config: { ...FACEDOCTOR_FASE2,
-      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_perdizes" } },
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_perdizes",
+      // Espelho no Infosoft (piloto): criação/reagendamento/exclusão refletem
+      // no ERP via workflow "Infosoft Espelho - Perdizes".
+      infosoft: true,
+      webhookInfosoft: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/infosoft_perdizes" } },
   { slug: "recreio",               label: "Recreio dos Bandeirantes",      table: "Agendamento_Recreiodosbandeirantes", respStyle: "accented" },
   { slug: "smile-skin",            label: "Smile Skin",                    table: "Agendamento_Smile Skin",             respStyle: "ascii" },
   { slug: "vanda",                 label: "Vanda Santos",                  table: "Agendamento_Vanda",                  respStyle: "accented" },

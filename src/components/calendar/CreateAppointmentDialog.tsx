@@ -46,6 +46,13 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
   const [procedimento, setProcedimento] = useState("");
   const [respAtendimento, setRespAtendimento] = useState("");
   const [origem, setOrigem] = useState("");
+  // Dados de paciente do espelho Infosoft (config.infosoft) — opcionais: sem
+  // eles o agendamento é criado normalmente e o espelho fica pendente até a
+  // recepção completar (ou o paciente já existir no cadastro do ERP).
+  const [cpf, setCpf] = useState("");
+  const [nascimento, setNascimento] = useState("");
+  const [sexo, setSexo] = useState("");
+  const [email, setEmail] = useState("");
 
   // Reset ao abrir (form limpo a cada novo agendamento).
   useEffect(() => {
@@ -53,6 +60,7 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
       setNome(""); setTelefone(""); setRecorrente(false); setHorario("08:00");
       setDataUnica(today()); setDataInicio(today()); setNumSessoes(8); setWeekdays([]);
       setTipo(""); setProcedimento(""); setRespAtendimento(""); setOrigem("");
+      setCpf(""); setNascimento(""); setSexo(""); setEmail("");
     }
   }, [open]);
 
@@ -86,6 +94,10 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
       if (conflito) return toast.error(`Horário já ocupado (${conflito}). Escolha outro horário.`);
     }
     try {
+      const cpfDigits = cpf.replace(/\D/g, "");
+      if (cfg?.infosoft && cpfDigits && cpfDigits.length !== 11) {
+        return toast.error("CPF inválido (11 dígitos)");
+      }
       const { inserted, skipped } = await createMutation.mutateAsync({
         nome: nome.trim(),
         telefone: tel,
@@ -94,6 +106,10 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
         procedimento: procedimento || null,
         origem: origem || null,
         responsavelAtendimento: respAtendimento || null,
+        cpf: cfg?.infosoft ? cpfDigits || null : null,
+        nascimento: cfg?.infosoft ? nascimento || null : null,
+        sexo: cfg?.infosoft ? sexo || null : null,
+        email: cfg?.infosoft ? email.trim() || null : null,
       });
       if (inserted === 0) {
         toast.error("Nada criado: esses horários já existem");
@@ -113,6 +129,22 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
         datas,
         tipo: tipo || null,
         procedimento: procedimento || null,
+      });
+      // Espelho no Infosoft (config.webhookInfosoft) — payload leva também o
+      // responsável (de-para de prestador) e os dados de paciente do ERP.
+      firePainelWebhook(cfg?.webhookInfosoft, {
+        evento: "agendamento_criado",
+        unidade: unit.slug,
+        nome: nome.trim(),
+        telefone: tel,
+        datas,
+        tipo: tipo || null,
+        procedimento: procedimento || null,
+        responsavel: respAtendimento || null,
+        cpf: cpfDigits || null,
+        nascimento: nascimento || null,
+        sexo: sexo || null,
+        email: email.trim() || null,
       });
       onOpenChange(false);
     } catch (e) {
@@ -283,6 +315,44 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
               <Input list="create-resp-at-suggestions" value={respAtendimento} onChange={(e) => setRespAtendimento(e.target.value)} placeholder="Nome..." className="border-border bg-secondary/50" />
             </div>
           </div>
+
+          {/* Cadastro do paciente p/ o espelho no Infosoft (config.infosoft).
+              Opcional: se o paciente já existe no ERP, o n8n resolve pelo
+              telefone; se não, esses campos completam o cadastro. */}
+          {cfg?.infosoft && (
+            <div className="rounded-xl border border-border bg-secondary/30 p-3">
+              <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
+                <ClipboardList className="h-3.5 w-3.5 text-primary" /> Cadastro Infosoft (opcional)
+              </Label>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Necessário só para paciente novo no ERP. Paciente já cadastrado é resolvido pelo telefone.
+              </p>
+              <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">CPF</Label>
+                  <Input value={cpf} onChange={(e) => setCpf(e.target.value)} placeholder="000.000.000-00" className="border-border bg-card" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Nascimento</Label>
+                  <Input type="date" value={nascimento} onChange={(e) => setNascimento(e.target.value)} className="border-border bg-card" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Sexo</Label>
+                  <Select value={sexo} onValueChange={setSexo}>
+                    <SelectTrigger className="border-border bg-card"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="F">Feminino</SelectItem>
+                      <SelectItem value="M">Masculino</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">E-mail</Label>
+                  <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="email@..." className="border-border bg-card" />
+                </div>
+              </div>
+            </div>
+          )}
 
           <Button onClick={handleSave} disabled={createMutation.isPending} className="w-full bg-primary text-primary-foreground font-bold hover:bg-primary/90">
             <Save className="mr-2 h-4 w-4" />

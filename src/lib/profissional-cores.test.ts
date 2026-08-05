@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { corDoProfissional, legendaCores, normalizarTexto } from "./profissional-cores";
+import { corDoProfissional, legendaCores, matchProfissional, normalizarTexto } from "./profissional-cores";
 
 // Config real da Fisio Vida (units.ts).
 const CORES = { Nice: "vermelho", Elis: "amarelo", Lenisa: "roxo", Pedro: "azul", Pietra: "verde" };
@@ -29,6 +29,26 @@ describe("legendaCores", () => {
     expect(legendaCores(CORES)).toHaveLength(5);
     expect(legendaCores({ X: "cor-inexistente" })).toEqual([]);
     expect(legendaCores(undefined)).toEqual([]);
+  });
+});
+
+describe("matchProfissional", () => {
+  it("primeiro nome (legenda) casa o nome completo da tabela", () => {
+    expect(matchProfissional("Pietra Emanuelle de Souza Magalhães", "Pietra")).toBe(true);
+  });
+  it("nome completo (dropdown) casa a própria linha", () => {
+    expect(matchProfissional("Nice oliveira", "Nice oliveira")).toBe(true);
+  });
+  it("ignora caixa e acento", () => {
+    expect(matchProfissional("PÉDRO igo", "pedro")).toBe(true);
+  });
+  it("profissional diferente não casa", () => {
+    expect(matchProfissional("Elis Regina Rocha", "Pedro")).toBe(false);
+  });
+  it("filtro vazio deixa tudo passar; sem responsável não passa com filtro", () => {
+    expect(matchProfissional("Qualquer Nome", "")).toBe(true);
+    expect(matchProfissional(null, "Pedro")).toBe(false);
+    expect(matchProfissional("", "Pedro")).toBe(false);
   });
 });
 

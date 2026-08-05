@@ -47,6 +47,19 @@ export function corDoProfissional(
   return null;
 }
 
+// Filtro por profissional (config.filtroProfissional): o dropdown manda o nome
+// completo e a legenda manda só o primeiro nome — o prefixo cobre os dois.
+// Filtro vazio deixa tudo passar; linha sem responsável não passa com filtro.
+export function matchProfissional(
+  respAtendimento: string | null | undefined,
+  filtro: string,
+): boolean {
+  const f = norm(filtro);
+  if (!f) return true;
+  const resp = norm(respAtendimento ?? "");
+  return !!resp && resp.startsWith(f);
+}
+
 // Opções de cor para o seletor da UI (cadastro de atendentes).
 export function paletaDisponivel(): { nome: string; dot: string }[] {
   return Object.entries(PALETA).map(([nome, p]) => ({ nome, dot: p.dot }));

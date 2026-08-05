@@ -237,6 +237,26 @@ export function useDeleteAgendamento() {
   });
 }
 
+// Exclui VÁRIOS agendamentos de uma vez (botão "Excluir todos os futuros deste
+// paciente" — config.excluirFuturos). Um único DELETE ... IN (ids): os ids são
+// calculados no cliente sobre a lista já carregada, porque "futuro" não dá para
+// comparar no servidor (Data é texto "dd/MM/yyyy HH:mm").
+export function useDeleteAgendamentos() {
+  const unit = useUnit();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (ids: number[]) => {
+      const { error } = await supabase.from(unit.table).delete().in("id", ids);
+      if (error) throw error;
+      return ids.length;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agendamentos", unit.table] });
+    },
+  });
+}
+
 // Reagenda várias sessões de uma vez (edição de data/horário propagada às
 // sessões futuras da recorrência — config.editarData). Atualiza linha a linha;
 // colisão com o índice único (Telefone, Data) vira "conflito" em vez de quebrar

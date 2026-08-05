@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildDataString, findFutureSiblings, shiftSessao } from "./agendamento-reagendar";
+import { buildDataString, findFutureSiblings, sessoesFuturasDoPaciente, shiftSessao } from "./agendamento-reagendar";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 
 // Linha mínima para os testes (só os campos que os helpers leem).
@@ -69,6 +69,42 @@ describe("findFutureSiblings", () => {
 
   it("data inválida na sessão aberta => vazio", () => {
     expect(findFutureSiblings(ag({ id: 20 }), lista)).toEqual([]);
+  });
+});
+
+describe("sessoesFuturasDoPaciente", () => {
+  const agora = new Date(2026, 7, 5, 12, 0); // qua 05/08/2026 12:00
+  const aberta = ag({ id: 1, "Número": "5551999990000", Nome: "Maria", parsedDate: new Date(2026, 7, 6, 8, 0) });
+  const lista = [
+    aberta,
+    // Futuras do mesmo paciente em dias/horários DIFERENTES (não é recorrência):
+    ag({ id: 2, "Número": "5551999990000", parsedDate: new Date(2026, 7, 11, 9, 30) }),
+    ag({ id: 3, "Número": "5551999990000", parsedDate: new Date(2026, 8, 1, 14, 0) }),
+    // Passada:
+    ag({ id: 4, "Número": "5551999990000", parsedDate: new Date(2026, 7, 4, 8, 0) }),
+    // Outro paciente, futura:
+    ag({ id: 5, "Número": "5551888880000", parsedDate: new Date(2026, 7, 11, 9, 30) }),
+    // Sem data:
+    ag({ id: 6, "Número": "5551999990000", parsedDate: null }),
+  ];
+
+  it("pega TODAS as futuras do paciente (inclusive a aberta), qualquer dia/horário", () => {
+    expect(sessoesFuturasDoPaciente(aberta, lista, agora).map((a) => a.id)).toEqual([1, 2, 3]);
+  });
+
+  it("sessão aberta no passado: só as futuras entram", () => {
+    const passada = lista[3];
+    expect(sessoesFuturasDoPaciente(passada, lista, agora).map((a) => a.id)).toEqual([1, 2, 3]);
+  });
+
+  it("sem telefone, casa pelo nome normalizado", () => {
+    const semTel = ag({ id: 10, Nome: "João da Silva", parsedDate: new Date(2026, 7, 6, 8, 0) });
+    const lista2 = [
+      semTel,
+      ag({ id: 11, Nome: "joao DA silva", parsedDate: new Date(2026, 7, 20, 8, 0) }),
+      ag({ id: 12, Nome: "Outra Pessoa", parsedDate: new Date(2026, 7, 20, 8, 0) }),
+    ];
+    expect(sessoesFuturasDoPaciente(semTel, lista2, agora).map((a) => a.id)).toEqual([10, 11]);
   });
 });
 

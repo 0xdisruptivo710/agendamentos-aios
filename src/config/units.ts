@@ -22,10 +22,17 @@ export interface UnitConfig {
   presenca?: boolean;    // registro de presença/falta (com/sem justificativa)
   criar?: boolean;       // botão "Novo agendamento" (+ recorrência) no painel
   excluir?: boolean;     // botão "Excluir" no modal de detalhes (DELETE no banco)
+  // Botão "Excluir todos os futuros deste paciente" no modal: apaga TODAS as
+  // sessões com Data > agora do mesmo paciente (telefone, ou nome quando sem
+  // telefone) — não só as da recorrência aberta. Requer policy anon de DELETE.
+  excluirFuturos?: boolean;
   atendentes?: boolean;  // cadastro de atendentes (alimenta o dropdown de responsável)
   nameCol?: string;      // coluna física do nome ao INSERIR (default "Nome")
   phoneCol?: string;     // coluna física do telefone ao INSERIR (default "Número")
   busca?: boolean;       // barra de busca de paciente (nome/telefone) na aba Agenda
+  // Filtro por profissional (Resp. atendimento) na aba Agenda: dropdown com os
+  // nomes da base + legenda de cores clicável. Match por prefixo normalizado.
+  filtroProfissional?: boolean;
   editarData?: boolean;  // editar data/horário no modal (+ propagar às sessões futuras)
   addCategorias?: boolean; // cadastro de categorias extras pela UI (tabela painel_categorias)
   addProcedimentos?: boolean; // cadastro de procedimentos pela UI (tabela painel_procedimentos)
@@ -192,10 +199,12 @@ export const UNITS: Unit[] = [
       presenca: true,
       criar: true,
       excluir: true,
+      excluirFuturos: true,
       atendentes: true,
       nameCol: "Noem",
       phoneCol: "Telefone",
       busca: true,
+      filtroProfissional: true,
       editarData: true,
       addCategorias: true,
       addProcedimentos: true,

@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles, CalendarCheck, UserCheck, Building2, Trash2 } from "lucide-react";
+import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles, CalendarCheck, CalendarX, UserCheck, Building2, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { useUpdateAgendamento, useDeleteAgendamento, useReagendarSessoes } from "@/hooks/useAgendamentos";
+import { useUpdateAgendamento, useDeleteAgendamento, useDeleteAgendamentos, useReagendarSessoes } from "@/hooks/useAgendamentos";
 import { useCategorias, mergeCategorias } from "@/hooks/useCategorias";
-import { buildDataString, findFutureSiblings, shiftSessao } from "@/lib/agendamento-reagendar";
+import { buildDataString, findFutureSiblings, sessoesFuturasDoPaciente, shiftSessao } from "@/lib/agendamento-reagendar";
 import { firePainelWebhook } from "@/lib/painel-webhook";
 import { useUnit } from "@/context/UnitContext";
 import {
@@ -117,18 +117,21 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const [horaEdit, setHoraEdit] = useState<string>("");   // "HH:mm"
   const [aplicarFuturas, setAplicarFuturas] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmDeleteFuturas, setConfirmDeleteFuturas] = useState(false);
   // Última presença JÁ NOTIFICADA ao n8n (NPS/falta). Ref, e não event.Presenca,
   // porque o objeto `event` fica stale após o 1º save (o pai mantém a referência
   // selecionada) — comparar com ele reenviaria a mensagem a cada Salvar.
   const presencaNotificada = useRef<string | null>(null);
   const updateMutation = useUpdateAgendamento();
   const deleteMutation = useDeleteAgendamento();
+  const deleteFuturasMutation = useDeleteAgendamentos();
   const reagendarMutation = useReagendarSessoes();
   const { data: categoriasExtras } = useCategorias();
 
   useEffect(() => {
     if (event) {
       setConfirmDelete(false);
+      setConfirmDeleteFuturas(false);
       setNotes(event.Anotações || "");
       setValor(event.Valor != null ? String(event.Valor) : "");
       setRespAgendamento(event.Responsavel_Agendamento || "");
@@ -153,6 +156,13 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const sessoesFuturas = useMemo(
     () => (cfg?.editarData && event && agendamentos ? findFutureSiblings(event, agendamentos) : []),
     [cfg?.editarData, event, agendamentos],
+  );
+
+  // TODAS as sessões futuras do paciente (qualquer dia/horário), inclusive a
+  // aberta se futura — alvo do "Excluir todos os futuros" (config.excluirFuturos).
+  const futurasDoPaciente = useMemo(
+    () => (cfg?.excluirFuturos && event && agendamentos ? sessoesFuturasDoPaciente(event, agendamentos) : []),
+    [cfg?.excluirFuturos, event, agendamentos],
   );
 
   if (!event) return null;
@@ -318,6 +328,28 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
         data: event.Data,
       });
       toast.success("Agendamento excluído");
+      onOpenChange(false);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      toast.error("Erro ao excluir" + (msg ? ": " + msg : ""));
+    }
+  };
+
+  const handleDeleteFuturas = async () => {
+    try {
+      const n = await deleteFuturasMutation.mutateAsync(futurasDoPaciente.map((f) => f.id));
+      // Espelho Infosoft: um evento por sessão excluída — é por (Número, Data)
+      // que o n8n acha cada autorização no ERP.
+      for (const f of futurasDoPaciente) {
+        firePainelWebhook(cfg?.webhookInfosoft, {
+          evento: "agendamento_excluido",
+          unidade: unit.slug,
+          nome: f.Nome,
+          telefone: f["Número"],
+          data: f.Data,
+        });
+      }
+      toast.success(`${n} ${n === 1 ? "agendamento futuro excluído" : "agendamentos futuros excluídos"}`);
       onOpenChange(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";
@@ -560,9 +592,9 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
             </Button>
           </div>
 
-          {cfg?.excluir && (
-            <div className="border-t border-border pt-3">
-              {!confirmDelete ? (
+          {(cfg?.excluir || (cfg?.excluirFuturos && futurasDoPaciente.length > 0)) && (
+            <div className="space-y-1 border-t border-border pt-3">
+              {cfg?.excluir && (!confirmDelete ? (
                 <Button
                   variant="ghost"
                   onClick={() => setConfirmDelete(true)}
@@ -583,7 +615,32 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
                     {deleteMutation.isPending ? "Excluindo..." : "Excluir"}
                   </Button>
                 </div>
-              )}
+              ))}
+              {cfg?.excluirFuturos && futurasDoPaciente.length > 0 && (!confirmDeleteFuturas ? (
+                <Button
+                  variant="ghost"
+                  onClick={() => setConfirmDeleteFuturas(true)}
+                  className="w-full text-destructive hover:bg-destructive/10 hover:text-destructive"
+                >
+                  <CalendarX className="mr-2 h-4 w-4" /> Excluir todos os futuros deste paciente ({futurasDoPaciente.length})
+                </Button>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="flex-1 text-xs text-muted-foreground">
+                    Excluir {futurasDoPaciente.length === 1 ? "o agendamento futuro" : `os ${futurasDoPaciente.length} agendamentos futuros`} de{" "}
+                    {event.Nome || "este paciente"}? Não dá pra desfazer.
+                  </span>
+                  <Button variant="outline" size="sm" onClick={() => setConfirmDeleteFuturas(false)}>Cancelar</Button>
+                  <Button
+                    size="sm"
+                    onClick={handleDeleteFuturas}
+                    disabled={deleteFuturasMutation.isPending}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    {deleteFuturasMutation.isPending ? "Excluindo..." : "Excluir todos"}
+                  </Button>
+                </div>
+              ))}
             </div>
           )}
         </motion.div>

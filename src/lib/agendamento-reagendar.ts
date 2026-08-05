@@ -47,6 +47,19 @@ export function findFutureSiblings(event: Agendamento, agendamentos: Agendamento
   );
 }
 
+// TODAS as sessões futuras do paciente (Data > now), em qualquer dia da semana
+// e horário — inclusive a própria sessão aberta, se ainda for futura. Alvo do
+// botão "Excluir todos os futuros deste paciente" (config.excluirFuturos).
+export function sessoesFuturasDoPaciente(
+  event: Agendamento,
+  agendamentos: Agendamento[],
+  now: Date = new Date(),
+): Agendamento[] {
+  return agendamentos.filter(
+    (a) => a.parsedDate && a.parsedDate.getTime() > now.getTime() && samePatient(a, event),
+  );
+}
+
 // Move uma sessão futura pelo mesmo deslocamento aplicado à sessão editada:
 // weekdayDelta em dias (ex.: terça -> quarta = +1) dentro da própria semana da
 // sessão, e o novo horário fixo. Retorna a nova string de Data.

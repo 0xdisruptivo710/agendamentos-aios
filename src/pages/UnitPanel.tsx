@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { AlertCircle, BarChart3, CalendarDays, CheckCircle, Loader2, Search, Users, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CategoriasDialog } from "@/components/calendar/CategoriasDialog";
 import { ProcedimentosDialog } from "@/components/calendar/ProcedimentosDialog";
@@ -18,7 +19,8 @@ import { useAgendamentos, type Agendamento } from "@/hooks/useAgendamentos";
 import { useAtendentes, useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useProcedimentos } from "@/hooks/useProcedimentos";
 import { useUnit } from "@/context/UnitContext";
-import { legendaCores, normalizarTexto } from "@/lib/profissional-cores";
+import { legendaCores, matchProfissional, normalizarTexto } from "@/lib/profissional-cores";
+import { cn } from "@/lib/utils";
 
 function distinct(values: (string | null)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
@@ -35,20 +37,28 @@ const UnitPanel = () => {
   const [categoriasOpen, setCategoriasOpen] = useState(false);
   const [procedimentosOpen, setProcedimentosOpen] = useState(false);
   const [busca, setBusca] = useState("");
+  // Filtro por profissional (config.filtroProfissional): "" = todos. Recebe o
+  // nome completo (dropdown) ou só o primeiro nome (clique na legenda de cores).
+  const [fisio, setFisio] = useState("");
   const [activeTab, setActiveTab] = useState("agenda");
   const { data: agendamentos, isLoading, isError, error } = useAgendamentos();
   const { data: atendentes } = useAtendentes();
   const { data: procedimentosCadastrados } = useProcedimentos();
 
-  // Busca de paciente (config.busca): filtra a agenda por nome (sem acento/caixa)
-  // ou telefone (quando o termo tem 4+ dígitos). Vazio = agenda completa.
+  // Busca de paciente (config.busca): nome (sem acento/caixa) ou telefone
+  // (termo com 4+ dígitos). Filtro por profissional (config.filtroProfissional):
+  // prefixo do Resp. atendimento. Os dois compõem em E lógico; vazios = tudo.
   const agendamentosVisiveis = useMemo(() => {
     const all = agendamentos ?? [];
     const q = busca.trim();
-    if (!cfg?.busca || !q) return all;
+    const buscaAtiva = !!cfg?.busca && !!q;
+    const fisioAtivo = !!cfg?.filtroProfissional && !!fisio;
+    if (!buscaAtiva && !fisioAtivo) return all;
     const qn = normalizarTexto(q);
     const qDigits = q.replace(/\D/g, "");
     return all.filter((a) => {
+      if (fisioAtivo && !matchProfissional(a.Responsavel_Atendimento, fisio)) return false;
+      if (!buscaAtiva) return true;
       if (a.Nome && normalizarTexto(a.Nome).includes(qn)) return true;
       if (qDigits.length >= 4) {
         const tel = (a["Número"] ?? "").replace(/\D/g, "");
@@ -56,7 +66,7 @@ const UnitPanel = () => {
       }
       return false;
     });
-  }, [agendamentos, busca, cfg?.busca]);
+  }, [agendamentos, busca, fisio, cfg?.busca, cfg?.filtroProfissional]);
 
   // Legenda de cores por profissional: config.cores + cores definidas na UI
   // (cadastro de atendentes) — mesmas cores que as views usam nos cards.
@@ -97,6 +107,14 @@ const UnitPanel = () => {
     respAtendimento: distinct([...(agendamentos ?? []).map((a) => a.Responsavel_Atendimento), ...atendenteNomes]),
     procedimento: distinct([...(agendamentos ?? []).map((a) => a.Procedimento), ...procedimentoNomes]),
   }), [agendamentos, atendenteNomes, procedimentoNomes]);
+
+  // Opções do dropdown de profissional: a base tem valores com espaço sobrando
+  // ("Nice" e "Nice "), que o distinct trata como diferentes — dedupe trimado
+  // só aqui para o dropdown não mostrar nome repetido.
+  const profissionaisFiltro = useMemo(
+    () => Array.from(new Set(suggestions.respAtendimento.map((n) => n.trim()).filter(Boolean))),
+    [suggestions.respAtendimento],
+  );
 
   const stats = useMemo(() => {
     if (!agendamentos) return { total: 0, today: 0, confirmed: 0, pending: 0 };
@@ -178,30 +196,45 @@ const UnitPanel = () => {
               onManageProcedimentos={() => setProcedimentosOpen(true)}
             />
 
-            {(cfg?.busca || legenda.length > 0) && (
+            {(cfg?.busca || cfg?.filtroProfissional || legenda.length > 0) && (
               <div className="flex flex-wrap items-center justify-between gap-3">
-                {cfg?.busca && (
-                  <div className="flex items-center gap-3">
-                    <div className="relative w-72 max-w-full">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        value={busca}
-                        onChange={(e) => setBusca(e.target.value)}
-                        placeholder="Buscar paciente por nome ou telefone..."
-                        className="border-border bg-card pl-9 pr-8"
-                      />
-                      {busca && (
-                        <button
-                          type="button"
-                          onClick={() => setBusca("")}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
-                          aria-label="Limpar busca"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                    {busca.trim() && (
+                {(cfg?.busca || cfg?.filtroProfissional) && (
+                  <div className="flex flex-wrap items-center gap-3">
+                    {cfg?.busca && (
+                      <div className="relative w-72 max-w-full">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={busca}
+                          onChange={(e) => setBusca(e.target.value)}
+                          placeholder="Buscar paciente por nome ou telefone..."
+                          className="border-border bg-card pl-9 pr-8"
+                        />
+                        {busca && (
+                          <button
+                            type="button"
+                            onClick={() => setBusca("")}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground transition-colors hover:text-foreground"
+                            aria-label="Limpar busca"
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {cfg?.filtroProfissional && (
+                      <Select value={fisio || "__todos__"} onValueChange={(v) => setFisio(v === "__todos__" ? "" : v)}>
+                        <SelectTrigger className="w-60 border-border bg-card">
+                          <SelectValue placeholder="Fisioterapeuta" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="__todos__">Todos os profissionais</SelectItem>
+                          {profissionaisFiltro.map((n) => (
+                            <SelectItem key={n} value={n}>{n}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    )}
+                    {(busca.trim() || fisio) && (
                       <span className="text-xs font-medium text-muted-foreground">
                         {agendamentosVisiveis.length}{" "}
                         {agendamentosVisiveis.length === 1 ? "agendamento encontrado" : "agendamentos encontrados"}
@@ -211,15 +244,33 @@ const UnitPanel = () => {
                 )}
                 {legenda.length > 0 && (
                   <div className="flex flex-wrap items-center gap-2">
-                    {legenda.map((c) => (
-                      <span
-                        key={c.key}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1 text-[11px] font-semibold text-foreground"
-                      >
-                        <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
-                        {c.key}
-                      </span>
-                    ))}
+                    {legenda.map((c) => {
+                      // Com o filtro ligado o chip vira botão (toggle pelo primeiro
+                      // nome); fica ativo também quando o dropdown escolheu o nome
+                      // completo que começa com ele.
+                      const ativo =
+                        !!cfg?.filtroProfissional && !!fisio && normalizarTexto(fisio).startsWith(normalizarTexto(c.key));
+                      const classes = cn(
+                        "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                        ativo ? "border-primary bg-primary/10 text-primary" : "border-border bg-card text-foreground",
+                      );
+                      return cfg?.filtroProfissional ? (
+                        <button
+                          key={c.key}
+                          type="button"
+                          onClick={() => setFisio(ativo ? "" : c.key)}
+                          className={cn(classes, "transition-colors hover:border-primary/50")}
+                        >
+                          <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
+                          {c.key}
+                        </button>
+                      ) : (
+                        <span key={c.key} className={classes}>
+                          <span className={`h-2.5 w-2.5 rounded-full ${c.dot}`} />
+                          {c.key}
+                        </span>
+                      );
+                    })}
                   </div>
                 )}
               </div>

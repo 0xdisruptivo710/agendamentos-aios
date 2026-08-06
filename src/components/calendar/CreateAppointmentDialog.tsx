@@ -84,6 +84,12 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
     if (!tel) return toast.error("Telefone inválido");
     if (recorrente && weekdays.length === 0) return toast.error("Selecione ao menos um dia da semana");
     if (datas.length === 0) return toast.error("Nenhuma data para agendar");
+    // Espelho Infosoft: o POST /agendar do ERP exige o serviço (servicoUuid),
+    // resolvido pelo de-para categoria -> serviço. Sem categoria o espelho
+    // nunca fecharia — por isso ela é obrigatória nas unidades com infosoft.
+    if (cfg?.infosoft && !tipo) {
+      return toast.error("Selecione a categoria — ela define o serviço no Infosoft");
+    }
     // Horário único (config.horarioUnico): bloqueia agendar em cima de horário
     // já ocupado por outro paciente (agendamento não cancelado conta como ocupado).
     if (cfg?.horarioUnico) {
@@ -278,6 +284,7 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
             <div className="space-y-1.5">
               <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
                 <ClipboardList className="h-3.5 w-3.5 text-primary" /> Categoria
+                {cfg?.infosoft && <span className="font-normal text-muted-foreground">(obrigatória — serviço no Infosoft)</span>}
               </Label>
               <Select value={tipo} onValueChange={setTipo}>
                 <SelectTrigger className="border-border bg-secondary/50"><SelectValue placeholder="Selecione..." /></SelectTrigger>

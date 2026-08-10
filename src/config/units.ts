@@ -234,9 +234,12 @@ export const UNITS: Unit[] = [
   { slug: "smile-skin",            label: "Smile Skin",                    table: "Agendamento_Smile Skin",             respStyle: "ascii",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_smile_skin" } },
+  // ATENÇÃO: o path "painel_vanda" JÁ PERTENCE ao workflow antigo de CRM
+  // "Painel Vanda" (aHwMTCsQYzDKTQ8B, dispara mídia por stepId de card) — por
+  // isso a agenda usa "painel_agendamento_vanda" para não colidir.
   { slug: "vanda",                 label: "Vanda Santos",                  table: "Agendamento_Vanda",                  respStyle: "accented",
     config: { ...ESTETICA_ROLLOUT,
-      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_vanda" } },
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_agendamento_vanda" } },
   { slug: "vila-leopoldina",       label: "Vila Leopoldina",               table: "Agendamento_VilaLeopoldina",         respStyle: "ascii",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_vila_leopoldina" } },

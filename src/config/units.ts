@@ -187,7 +187,13 @@ export const UNITS: Unit[] = [
     config: { ...ESTETICA_ROLLOUT } },
   { slug: "dourados",              label: "Face Doctor Dourados",          table: "Agendamento_Dourados",               respStyle: "accented",
     config: { ...FACEDOCTOR_FASE2,
-      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_dourados" } },
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_dourados",
+      // Espelho no Infosoft (2026-08-10, réplica do piloto Perdizes): criação/
+      // reagendamento/exclusão refletem no ERP via "Infosoft Espelho - Dourados".
+      // Torna a Categoria obrigatória no criar e liga os campos CPF/nascimento/
+      // sexo/e-mail do paciente (exigidos pelo POST /agendar do ilife).
+      infosoft: true,
+      webhookInfosoft: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/infosoft_dourados" } },
   { slug: "dr-colageno",           label: "Dr. Colágeno Piracicaba",       table: "Agendamento_DrColageno_Piracicaba",  respStyle: "ascii",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_dr_colageno" } },

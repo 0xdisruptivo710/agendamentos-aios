@@ -288,22 +288,24 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
       }
 
       // Remarcação notifica o n8n em DOIS webhooks independentes:
-      //   webhookAgendamento -> mensagem de remarcação ao paciente (fluxos que
-      //     só tratam criação ignoram: o Code do n8n mapeia `datas`, que aqui
-      //     não existe — payload de remarcação leva `mudancas`).
+      //   webhookAgendamento -> mensagem de remarcação ao paciente. SÓ nas
+      //     unidades do rollout (config.webhookTodosEventos): as que já tinham
+      //     n8n conectado antes (pilotos/Odonto) esperam só o evento de criação.
       //   webhookInfosoft    -> espelho no ERP (cancela e recria a autorização).
       if (dataAlterada && updates.Data && event.Data) {
         const mudancas = [{ de: event.Data, para: updates.Data }, ...mudancasFuturas];
-        firePainelWebhook(cfg?.webhookAgendamento, {
-          evento: "agendamento_reagendado",
-          unidade: unit.slug,
-          canal: event.Canal,
-          nome: event.Nome,
-          telefone: event["Número"],
-          mudancas,
-          tipo: tipo || null,
-          procedimento: procedimento || null,
-        });
+        if (cfg?.webhookTodosEventos) {
+          firePainelWebhook(cfg?.webhookAgendamento, {
+            evento: "agendamento_reagendado",
+            unidade: unit.slug,
+            canal: event.Canal,
+            nome: event.Nome,
+            telefone: event["Número"],
+            mudancas,
+            tipo: tipo || null,
+            procedimento: procedimento || null,
+          });
+        }
         firePainelWebhook(cfg?.webhookInfosoft, {
           evento: "agendamento_reagendado",
           unidade: unit.slug,
@@ -331,19 +333,26 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const handleDelete = async () => {
     try {
       await deleteMutation.mutateAsync(event.id);
-      // Exclusão notifica o n8n da unidade (payload sem `datas` — fluxos que só
-      // tratam criação ignoram) e o espelho Infosoft, que cancela a autorização
-      // vinculada; o vínculo mora na tabela-espelho, funciona com a linha apagada.
-      const excluidoPayload = {
+      // Exclusão notifica o n8n da unidade (só rollout — webhookTodosEventos) e
+      // o espelho Infosoft, que cancela a autorização vinculada; o vínculo mora
+      // na tabela-espelho do n8n, então funciona mesmo com a linha já apagada.
+      if (cfg?.webhookTodosEventos) {
+        firePainelWebhook(cfg?.webhookAgendamento, {
+          evento: "agendamento_excluido",
+          unidade: unit.slug,
+          canal: event.Canal,
+          nome: event.Nome,
+          telefone: event["Número"],
+          data: event.Data,
+        });
+      }
+      firePainelWebhook(cfg?.webhookInfosoft, {
         evento: "agendamento_excluido",
         unidade: unit.slug,
-        canal: event.Canal,
         nome: event.Nome,
         telefone: event["Número"],
         data: event.Data,
-      };
-      firePainelWebhook(cfg?.webhookAgendamento, excluidoPayload);
-      firePainelWebhook(cfg?.webhookInfosoft, excluidoPayload);
+      });
       toast.success("Agendamento excluído");
       onOpenChange(false);
     } catch (e) {
@@ -358,16 +367,23 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
       // Um evento por sessão excluída — é por (Número, Data) que o n8n acha a
       // linha (e o espelho acha cada autorização no ERP).
       for (const f of futurasDoPaciente) {
-        const payload = {
+        if (cfg?.webhookTodosEventos) {
+          firePainelWebhook(cfg?.webhookAgendamento, {
+            evento: "agendamento_excluido",
+            unidade: unit.slug,
+            canal: f.Canal,
+            nome: f.Nome,
+            telefone: f["Número"],
+            data: f.Data,
+          });
+        }
+        firePainelWebhook(cfg?.webhookInfosoft, {
           evento: "agendamento_excluido",
           unidade: unit.slug,
-          canal: f.Canal,
           nome: f.Nome,
           telefone: f["Número"],
           data: f.Data,
-        };
-        firePainelWebhook(cfg?.webhookAgendamento, payload);
-        firePainelWebhook(cfg?.webhookInfosoft, payload);
+        });
       }
       toast.success(`${n} ${n === 1 ? "agendamento futuro excluído" : "agendamentos futuros excluídos"}`);
       onOpenChange(false);

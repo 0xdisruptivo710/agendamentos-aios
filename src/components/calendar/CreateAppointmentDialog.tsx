@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { useUnit } from "@/context/UnitContext";
 import { useAgendamentos, useCreateAgendamentos } from "@/hooks/useAgendamentos";
 import { firePainelWebhook } from "@/lib/painel-webhook";
+import { monitorEspelhoInfosoft } from "@/lib/infosoft-monitor";
 import { mergeCategorias, useCategorias } from "@/hooks/useCategorias";
 import { ORIGEM_OPCOES } from "@/lib/agendamento-status";
 import { generateOccurrences, normalizePhoneBR, singleOccurrence, WEEKDAYS } from "@/lib/agendamento-create";
@@ -152,6 +153,9 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
         sexo: sexo || null,
         email: email.trim() || null,
       });
+      // O espelho é assíncrono: acompanha o resultado e avisa se o ilife
+      // recusar (ex.: horário ocupado) — senão a atendente acha que entrou.
+      if (cfg?.infosoft) monitorEspelhoInfosoft(unit.table, tel, datas);
       onOpenChange(false);
     } catch (e) {
       const msg = e instanceof Error ? e.message : "";

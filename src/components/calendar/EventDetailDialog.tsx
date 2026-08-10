@@ -417,6 +417,27 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
             <span className="text-sm font-semibold">{status.label}</span>
           </div>
 
+          {/* Resultado do espelho no ilife (unidades com config.infosoft) — a
+              atendente precisa VER quando o ERP recusou, senão acha que entrou. */}
+          {cfg?.infosoft && (() => {
+            const s = event.infosoft_status ?? "";
+            const cls = s.startsWith("OK")
+              ? "border-green-500/40 bg-green-500/10 text-green-500"
+              : s.startsWith("ERRO")
+                ? "border-red-500/40 bg-red-500/10 text-red-500"
+                : s.startsWith("PENDENTE")
+                  ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
+                  : "border-border bg-muted/40 text-muted-foreground";
+            const label = s.startsWith("OK")
+              ? "Infosoft: agendado ✓"
+              : s.startsWith("ERRO")
+                ? `Infosoft: NÃO agendado — ${s.replace(/^ERRO:?\s*/, "")}`
+                : s.startsWith("PENDENTE")
+                  ? "Infosoft: pendente — faltou dado de cadastro"
+                  : "Infosoft: aguardando espelho…";
+            return <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${cls}`}>{label}</div>;
+          })()}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="glass-card rounded-xl p-3">
               <div className="mb-1 flex items-center gap-2">

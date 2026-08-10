@@ -99,7 +99,7 @@ export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick 
                       {prof && <span className={`h-2 w-2 shrink-0 rounded-full ${prof.dot}`} title={prof.key} />}
                       {formatAgendamentoTime(event.parsedDate)}
                     </span>
-                    <span className="mt-0.5 block truncate">{event.Nome || "Sem nome"}</span>
+                    <span className="mt-0.5 block truncate">{event.infosoft_status?.startsWith("ERRO") && "⚠️ "}{event.Nome || "Sem nome"}</span>
                   </button>
                   );
                 })}

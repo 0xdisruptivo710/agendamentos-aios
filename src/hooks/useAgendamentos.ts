@@ -43,6 +43,11 @@ export interface Agendamento {
   Nascimento: string | null; // "yyyy-MM-dd" (input type=date)
   Sexo: string | null;       // "F" | "M"
   Email: string | null;
+  // Espelho Infosoft (só unidades com config.infosoft; quem escreve é o n8n):
+  // código da autorização no ilife e resultado do espelho
+  // ("OK" | "ERRO: motivo" | "PENDENTE: faltas" | null = ainda processando).
+  cod_autorizacao: string | null;
+  infosoft_status: string | null;
 }
 
 const RESP_AG: Record<RespStyle, string> = {
@@ -94,6 +99,8 @@ function fromRow(row: Record<string, any>): Agendamento {
     Nascimento: row["Nascimento"] ?? null,
     Sexo: row["Sexo"] ?? null,
     Email: row["Email"] ?? null,
+    cod_autorizacao: row["cod_autorizacao"] ?? null,
+    infosoft_status: row["infosoft_status"] ?? null,
   };
 }
 

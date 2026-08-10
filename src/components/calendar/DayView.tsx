@@ -66,7 +66,7 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
                 <div className="flex-1">
                   <div className="mb-1 flex items-center gap-2">
                     <User className="h-3.5 w-3.5 text-green-400" />
-                    <span className="text-sm font-bold text-foreground">{event.Nome || "Sem nome"}</span>
+                    <span className="text-sm font-bold text-foreground">{event.infosoft_status?.startsWith("ERRO") && "⚠️ "}{event.Nome || "Sem nome"}</span>
                   </div>
                   <p className="mb-2 text-xs font-semibold text-primary">{formatAgendamentoTime(event.parsedDate)}</p>
                   {event["Número"] && (

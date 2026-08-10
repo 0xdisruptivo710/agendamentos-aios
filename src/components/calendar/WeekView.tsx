@@ -73,7 +73,7 @@ export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewPr
                     {prof && <span className={`h-2 w-2 shrink-0 rounded-full ${prof.dot}`} title={prof.key} />}
                     {formatAgendamentoTime(event.parsedDate)}
                   </p>
-                  <p className="mt-1 text-xs font-semibold text-foreground line-clamp-2">{event.Nome || "Sem nome"}</p>
+                  <p className="mt-1 text-xs font-semibold text-foreground line-clamp-2">{event.infosoft_status?.startsWith("ERRO") && "⚠️ "}{event.Nome || "Sem nome"}</p>
                   {event["Número"] && <p className="mt-1 truncate text-[10px] text-muted-foreground">{event["Número"]}</p>}
                 </button>
                 );

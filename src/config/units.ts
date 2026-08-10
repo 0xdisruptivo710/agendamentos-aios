@@ -191,9 +191,15 @@ export const UNITS: Unit[] = [
       // Espelho no Infosoft (2026-08-10, réplica do piloto Perdizes): criação/
       // reagendamento/exclusão refletem no ERP via "Infosoft Espelho - Dourados".
       // Torna a Categoria obrigatória no criar e liga os campos CPF/nascimento/
-      // sexo/e-mail do paciente (exigidos pelo POST /agendar do ilife).
+      // sexo/e-mail do paciente.
       infosoft: true,
-      webhookInfosoft: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/infosoft_dourados" } },
+      webhookInfosoft: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/infosoft_dourados",
+      // SÓ Avaliação (decisão Murilo 10/08): o ilife recusa procedimento avulso
+      // ("precisa estar vinculado a um Orçamento ou uma Avaliação") — então o
+      // painel só oferece o que o espelho consegue agendar. addCategorias
+      // desligado para ninguém readicionar procedimento pela UI.
+      categorias: ["Avaliação"],
+      addCategorias: false } },
   { slug: "dr-colageno",           label: "Dr. Colágeno Piracicaba",       table: "Agendamento_DrColageno_Piracicaba",  respStyle: "ascii",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_dr_colageno" } },
@@ -239,7 +245,11 @@ export const UNITS: Unit[] = [
       // Espelho no Infosoft (piloto): criação/reagendamento/exclusão refletem
       // no ERP via workflow "Infosoft Espelho - Perdizes".
       infosoft: true,
-      webhookInfosoft: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/infosoft_perdizes" } },
+      webhookInfosoft: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/infosoft_perdizes",
+      // SÓ Avaliação (decisão Murilo 10/08) — mesmo motivo de Dourados: o ilife
+      // não agenda procedimento avulso pela API.
+      categorias: ["Avaliação"],
+      addCategorias: false } },
   { slug: "recreio",               label: "Recreio dos Bandeirantes",      table: "Agendamento_Recreiodosbandeirantes", respStyle: "accented",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_recreio" } },

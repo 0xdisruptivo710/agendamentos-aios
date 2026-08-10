@@ -127,14 +127,17 @@ const FACEDOCTOR_FASE1: UnitConfig = {
 // Fase 2 Face Doctor (pilotos, 2026-07-30): criar/excluir agendamento pelo
 // painel + "Paciente agendou?" + registro de presença/falta. Colunas de
 // suporte: migração facedoctor_fase2_pilotos_dourados_analia. Sem `origem`
-// (Convênio × Particular não se aplica a estética). Criar pelo painel ainda
-// NÃO dispara confirmação/lembrete (os lembretes FD leem a planilha — Fase 3).
+// (Convênio × Particular não se aplica a estética).
+// 2026-08-09: + filtro por profissional e "excluir futuros" (pacote padrão do
+// rollout de estética — pedido inclui filtros e gestão da recorrência).
 const FACEDOCTOR_FASE2: UnitConfig = {
   ...FACEDOCTOR_FASE1,
   agendou: true,
   presenca: true,
   criar: true,
   excluir: true,
+  excluirFuturos: true,
+  filtroProfissional: true,
 };
 
 export const UNITS: Unit[] = [
@@ -144,25 +147,62 @@ export const UNITS: Unit[] = [
   { slug: "analia",                label: "Face Doctor Anália Franco",     table: "Agendamento_Analia",                 respStyle: "accented",
     config: { ...FACEDOCTOR_FASE2,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_analia" } },
-  { slug: "barra",                 label: "Face Doctor Barra da Tijuca",   table: "barradatijucaclinics_agendamento",   respStyle: "ascii" },
-  { slug: "botoclinic-riomar",     label: "Botoclinic Riomar",             table: "Agendamento_BotoclinicRiomar",       respStyle: "accented" },
-  { slug: "campinas",              label: "Campinas",                      table: "Agendamento_Campinas",               respStyle: "ascii" },
-  { slug: "campolim",              label: "Campolim",                      table: "Agendamento_Campolim",               respStyle: "ascii" },
-  { slug: "casa-verde",            label: "Casa Verde",                    table: "Agendamento_CasaVerde",              respStyle: "ascii" },
-  { slug: "df-plaza",              label: "DF Plaza",                      table: "Agendamento_DF_Plaza",               respStyle: "ascii" },
+  // Rollout estética (2026-08-09): todas as clínicas de estética ganham o
+  // pacote FACEDOCTOR_FASE2 + webhook próprio. O painel é quem dispara os
+  // webhooks para o n8n (fire-and-forget): agendamento_criado {datas[]},
+  // agendamento_reagendado {mudancas[]}, agendamento_excluido {data}. A ponta
+  // n8n de cada unidade será religada/testada pela equipe depois.
+  { slug: "barra",                 label: "Face Doctor Barra da Tijuca",   table: "barradatijucaclinics_agendamento",   respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_barra" } },
+  { slug: "botoclinic-riomar",     label: "Botoclinic Riomar",             table: "Agendamento_BotoclinicRiomar",       respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_botoclinic_riomar" } },
+  { slug: "campinas",              label: "Campinas",                      table: "Agendamento_Campinas",               respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_campinas" } },
+  { slug: "campolim",              label: "Campolim",                      table: "Agendamento_Campolim",               respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_campolim" } },
+  { slug: "casa-verde",            label: "Casa Verde",                    table: "Agendamento_CasaVerde",              respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_casa_verde" } },
+  { slug: "df-plaza",              label: "DF Plaza",                      table: "Agendamento_DF_Plaza",               respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_df_plaza" } },
   { slug: "dourados",              label: "Face Doctor Dourados",          table: "Agendamento_Dourados",               respStyle: "accented",
     config: { ...FACEDOCTOR_FASE2,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_dourados" } },
-  { slug: "dr-colageno",           label: "Dr. Colágeno Piracicaba",       table: "Agendamento_DrColageno_Piracicaba",  respStyle: "ascii" },
-  { slug: "dra-ligia",             label: "Dra. Lígia",                    table: "Agendamento_DraLigia",               respStyle: "accented" },
-  { slug: "duque-de-caxias",       label: "Duque de Caxias",               table: "Agendamento_Duque de Caxias",        respStyle: "ascii" },
-  { slug: "elevar",                label: "Elevar",                        table: "Agendamento_Elevar",                 respStyle: "accented" },
-  { slug: "estudio-mais",          label: "Estúdio Mais",                  table: "Agendamento_Estudio Mais",           respStyle: "ascii" },
-  { slug: "harmonize",             label: "Harmonize",                     table: "Agendamento_Harmonize",              respStyle: "accented" },
-  { slug: "ibirapuera",            label: "Ibirapuera",                    table: "Agendamento_Ibirapuera",             respStyle: "ascii" },
-  { slug: "itupeva",               label: "Face Doctor Itupeva",           table: "itupevaclinics_agendamento",         respStyle: "ascii" },
-  { slug: "londrina",              label: "Face Doctor Londrina",          table: "Agendamento_Londrina",               respStyle: "ascii" },
-  { slug: "macae",                 label: "Face Doctor Macaé",             table: "Agendamento_Macae",                  respStyle: "accented" },
+  { slug: "dr-colageno",           label: "Dr. Colágeno Piracicaba",       table: "Agendamento_DrColageno_Piracicaba",  respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_dr_colageno" } },
+  { slug: "dra-ligia",             label: "Dra. Lígia",                    table: "Agendamento_DraLigia",               respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_dra_ligia" } },
+  { slug: "duque-de-caxias",       label: "Duque de Caxias",               table: "Agendamento_Duque de Caxias",        respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_duque_de_caxias" } },
+  { slug: "elevar",                label: "Elevar",                        table: "Agendamento_Elevar",                 respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_elevar" } },
+  { slug: "estudio-mais",          label: "Estúdio Mais",                  table: "Agendamento_Estudio Mais",           respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_estudio_mais" } },
+  { slug: "harmonize",             label: "Harmonize",                     table: "Agendamento_Harmonize",              respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_harmonize" } },
+  { slug: "ibirapuera",            label: "Ibirapuera",                    table: "Agendamento_Ibirapuera",             respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_ibirapuera" } },
+  { slug: "itupeva",               label: "Face Doctor Itupeva",           table: "itupevaclinics_agendamento",         respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_itupeva" } },
+  { slug: "londrina",              label: "Face Doctor Londrina",          table: "Agendamento_Londrina",               respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_londrina" } },
+  { slug: "macae",                 label: "Face Doctor Macaé",             table: "Agendamento_Macae",                  respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_macae" } },
   // Fase 2+3 direto (2026-08-05): Perdizes nasceu do zero já na arquitetura
   // final — painel completo + confirmação/lembretes n8n lendo o Supabase
   // (workflow Agendamento Inteligente - Perdizes). Agenda alimentada SÓ pelo
@@ -174,14 +214,30 @@ export const UNITS: Unit[] = [
       // no ERP via workflow "Infosoft Espelho - Perdizes".
       infosoft: true,
       webhookInfosoft: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/infosoft_perdizes" } },
-  { slug: "recreio",               label: "Recreio dos Bandeirantes",      table: "Agendamento_Recreiodosbandeirantes", respStyle: "accented" },
-  { slug: "smile-skin",            label: "Smile Skin",                    table: "Agendamento_Smile Skin",             respStyle: "ascii" },
-  { slug: "vanda",                 label: "Vanda Santos",                  table: "Agendamento_Vanda",                  respStyle: "accented" },
-  { slug: "vila-leopoldina",       label: "Vila Leopoldina",               table: "Agendamento_VilaLeopoldina",         respStyle: "ascii" },
-  { slug: "botoclinic-aracatuba",  label: "Botoclinic Araçatuba",          table: "Agendamento_botoclinic_araçatuba",   respStyle: "accented" },
-  { slug: "botoclinic-sao-carlos", label: "Botoclinic São Carlos",         table: "Agendamento_botoclinic_são_carlos",  respStyle: "accented" },
+  { slug: "recreio",               label: "Recreio dos Bandeirantes",      table: "Agendamento_Recreiodosbandeirantes", respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_recreio" } },
+  { slug: "smile-skin",            label: "Smile Skin",                    table: "Agendamento_Smile Skin",             respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_smile_skin" } },
+  { slug: "vanda",                 label: "Vanda Santos",                  table: "Agendamento_Vanda",                  respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_vanda" } },
+  { slug: "vila-leopoldina",       label: "Vila Leopoldina",               table: "Agendamento_VilaLeopoldina",         respStyle: "ascii",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_vila_leopoldina" } },
+  { slug: "botoclinic-aracatuba",  label: "Botoclinic Araçatuba",          table: "Agendamento_botoclinic_araçatuba",   respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_botoclinic_aracatuba" } },
+  { slug: "botoclinic-sao-carlos", label: "Botoclinic São Carlos",         table: "Agendamento_botoclinic_são_carlos",  respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_botoclinic_sao_carlos" } },
+  // EF Harmony fica FORA do rollout de estética: a agenda nasce no Clinicorp e
+  // o painel lê uma VIEW filtrada — criar/editar aqui não refletiria no ERP.
   { slug: "ef-harmony",            label: "EF Harmony",                    table: "vw_agendamento_ef_harmony",          respStyle: "accented" },
-  { slug: "ladydai",               label: "Lady Dai",                      table: "Agendamento_ladydai",                respStyle: "accented" },
+  { slug: "ladydai",               label: "Lady Dai",                      table: "Agendamento_ladydai",                respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_ladydai" } },
   { slug: "fisio-vida",            label: "Fisio Vida",                    table: "Agendamento_Fisio_Vida",             respStyle: "ascii",
     config: {
       categorias: [
@@ -218,7 +274,9 @@ export const UNITS: Unit[] = [
         Pietra: "verde",
       },
     } },
-  { slug: "campo-belo",            label: "Campo Belo",                    table: "Agendamento_Campo_Belo",             respStyle: "accented" },
+  { slug: "campo-belo",            label: "Campo Belo",                    table: "Agendamento_Campo_Belo",             respStyle: "accented",
+    config: { ...FACEDOCTOR_FASE2,
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_campo_belo" } },
   // OdontoCompany: rede odontológica (franquia). Mesmo layout das clínicas de
   // estética; só as categorias do "Tipo" viram procedimentos dentários e a
   // Origem (Convênio/Particular) importa mais aqui (odonto popular).

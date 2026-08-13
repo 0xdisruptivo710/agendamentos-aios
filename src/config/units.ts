@@ -341,6 +341,32 @@ export const UNITS: Unit[] = [
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_agendamento_sr",
       webhookPresenca: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_presenca",
     } },
+  // Clínica Virtuosa Londrina (2026-08-13): cliente novo, nasceu direto na
+  // arquitetura final — tabela criada do zero (índice único PLENO, sem legado)
+  // e workflow "Agendamento Inteligente - Virtuosa" já lendo o Supabase.
+  // Categorias = os procedimentos que a própria clínica etiqueta no WTS.
+  { slug: "virtuosa",              label: "Clínica Virtuosa Londrina",     table: "Agendamento_Virtuosa",               respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Botox",
+        "Harmonização Facial",
+        "Preenchimento Labial",
+        "Preenchimento Glúteo",
+        "Preenchimento de Bigode Chinês",
+        "Depilação a Laser",
+        "Enzimas de Emagrecimento",
+        "Mini Lipo",
+        "Protocolo das Famosas",
+        "Retorno",
+      ],
+      // Especialistas que atendem hoje no WTS; o resto entra pelo cadastro de
+      // atendentes na UI, que também define a cor.
+      cores: {
+        "Flávia": "roxo",
+        "Milla": "rosa",
+      },
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_virtuosa" } },
 ];
 
 export function getUnitBySlug(slug: string | undefined): Unit | undefined {

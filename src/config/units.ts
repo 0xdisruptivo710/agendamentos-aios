@@ -40,6 +40,13 @@ export interface UnitConfig {
   // (ver src/lib/profissional-cores.ts). Match por prefixo, sem acento/caixa.
   cores?: Record<string, string>;
   horarioUnico?: boolean;      // bloqueia 2+ pacientes no MESMO horário (Data exata)
+  // Janela de almoço fechada para agendamento. Início inclusivo, fim exclusivo
+  // (com 12:30-14:00, as 14:00 continuam livres — é a reabertura).
+  almoco?: { inicio: string; fim: string };
+  // Bloqueia agendar em feriado: nacionais são calculados no app e os próprios
+  // da unidade (padroeiro, emenda, recesso) são cadastrados pela tela
+  // (tabela painel_feriados). Ver src/lib/agenda-bloqueios.ts.
+  feriados?: boolean;
   webhookAgendamento?: string; // n8n: confirmação por WhatsApp ao criar agendamento pelo painel
   webhookPresenca?: string;    // n8n: NPS (Compareceu) / mensagem de falta (Faltou) ao registrar presença
   // n8n: sincroniza a presença com o card do paciente no funil do WTS
@@ -103,6 +110,11 @@ const ODONTOCOMPANY_CONFIG: UnitConfig = {
   // não tem webhook de mensagem, também sincroniza card.
   webhookPresencaCard:
     "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_presenca_card",
+  // Clínica fechada 12:30-14:00 e em feriado. Vale nas 3 agendas (VH, SR e a
+  // geral) porque está no config compartilhado. Sábado atende só até 11h, então
+  // a janela de almoço não conflita com nada lá.
+  almoco: { inicio: "12:30", fim: "14:00" },
+  feriados: true,
 };
 
 // Fase 1 Face Doctor (pilotos Dourados e Anália Franco, 2026-07-30): só

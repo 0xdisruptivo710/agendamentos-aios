@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { CalendarHeader } from "@/components/calendar/CalendarHeader";
 import { CategoriasDialog } from "@/components/calendar/CategoriasDialog";
 import { ProcedimentosDialog } from "@/components/calendar/ProcedimentosDialog";
+import { FeriadosDialog } from "@/components/calendar/FeriadosDialog";
 import { CreateAppointmentDialog } from "@/components/calendar/CreateAppointmentDialog";
 import { DayView } from "@/components/calendar/DayView";
 import { EventDetailDialog, type EventSuggestions } from "@/components/calendar/EventDetailDialog";
@@ -35,6 +36,7 @@ const UnitPanel = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [categoriasOpen, setCategoriasOpen] = useState(false);
+  const [feriadosOpen, setFeriadosOpen] = useState(false);
   const [procedimentosOpen, setProcedimentosOpen] = useState(false);
   const [busca, setBusca] = useState("");
   // Filtro por profissional (config.filtroProfissional): "" = todos. Recebe o
@@ -194,6 +196,7 @@ const UnitPanel = () => {
               onCreate={() => setCreateOpen(true)}
               onManageCategorias={() => setCategoriasOpen(true)}
               onManageProcedimentos={() => setProcedimentosOpen(true)}
+              onManageFeriados={() => setFeriadosOpen(true)}
             />
 
             {(cfg?.busca || cfg?.filtroProfissional || legenda.length > 0) && (
@@ -302,6 +305,7 @@ const UnitPanel = () => {
         <CreateAppointmentDialog open={createOpen} onOpenChange={setCreateOpen} suggestions={suggestions} />
         <CategoriasDialog open={categoriasOpen} onOpenChange={setCategoriasOpen} />
         <ProcedimentosDialog open={procedimentosOpen} onOpenChange={setProcedimentosOpen} />
+        <FeriadosDialog open={feriadosOpen} onOpenChange={setFeriadosOpen} />
       </div>
     </div>
   );

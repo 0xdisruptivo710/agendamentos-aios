@@ -1,4 +1,4 @@
-import { ChevronLeft, ChevronRight, Calendar, ClipboardList, Plus, Sparkles } from "lucide-react";
+import { ChevronLeft, ChevronRight, Calendar, CalendarOff, ClipboardList, Plus, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -14,9 +14,10 @@ interface CalendarHeaderProps {
   onCreate?: () => void;
   onManageCategorias?: () => void;
   onManageProcedimentos?: () => void;
+  onManageFeriados?: () => void;
 }
 
-export function CalendarHeader({ currentDate, view, onPrev, onNext, onToday, onViewChange, onCreate, onManageCategorias, onManageProcedimentos }: CalendarHeaderProps) {
+export function CalendarHeader({ currentDate, view, onPrev, onNext, onToday, onViewChange, onCreate, onManageCategorias, onManageProcedimentos, onManageFeriados }: CalendarHeaderProps) {
   const unit = useUnit();
   return (
     <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
@@ -50,6 +51,11 @@ export function CalendarHeader({ currentDate, view, onPrev, onNext, onToday, onV
         {unit.config?.addProcedimentos && onManageProcedimentos && (
           <Button variant="outline" size="sm" onClick={onManageProcedimentos}>
             <Sparkles className="mr-1.5 h-4 w-4" /> Procedimentos
+          </Button>
+        )}
+        {unit.config?.feriados && onManageFeriados && (
+          <Button variant="outline" size="sm" onClick={onManageFeriados}>
+            <CalendarOff className="mr-1.5 h-4 w-4" /> Feriados
           </Button>
         )}
         <Button

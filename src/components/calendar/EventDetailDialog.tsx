@@ -12,6 +12,8 @@ import type { Agendamento } from "@/hooks/useAgendamentos";
 import { useUpdateAgendamento, useDeleteAgendamento, useDeleteAgendamentos, useReagendarSessoes } from "@/hooks/useAgendamentos";
 import { useCategorias, mergeCategorias } from "@/hooks/useCategorias";
 import { buildDataString, findFutureSiblings, sessoesFuturasDoPaciente, shiftSessao } from "@/lib/agendamento-reagendar";
+import { motivoBloqueio } from "@/lib/agenda-bloqueios";
+import { useBloqueios } from "@/hooks/useFeriados";
 import { firePainelWebhook } from "@/lib/painel-webhook";
 import { useUnit } from "@/context/UnitContext";
 import {
@@ -122,6 +124,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   // porque o objeto `event` fica stale após o 1º save (o pai mantém a referência
   // selecionada) — comparar com ele reenviaria a mensagem a cada Salvar.
   const presencaNotificada = useRef<string | null>(null);
+  const bloqueios = useBloqueios();
   const updateMutation = useUpdateAgendamento();
   const deleteMutation = useDeleteAgendamento();
   const deleteFuturasMutation = useDeleteAgendamentos();
@@ -221,6 +224,14 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
           toast.error("Data ou horário inválido");
           return;
         }
+        // Almoço/feriado. Só roda quando a data MUDA de fato (dataAlterada) —
+        // senão a recepção não conseguiria mais editar anotação de um
+        // agendamento antigo que caiu na janela bloqueada.
+        const bloqueio = motivoBloqueio(novaData, bloqueios);
+        if (bloqueio) {
+          toast.error(`Não é possível mover para ${novaData}: ${bloqueio}.`);
+          return;
+        }
         // Horário único (config.horarioUnico): não deixa MOVER para um horário
         // já ocupado por outro paciente. (A propagação às sessões futuras segue
         // reportando conflitos pelo próprio retorno do reagendar.)
@@ -269,9 +280,14 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
       if (dataAlterada && aplicarFuturas && sessoesFuturas.length > 0 && parsedDate) {
         const [y, m, d] = dataEdit.split("-").map(Number);
         const delta = new Date(y, m - 1, d).getDay() - parsedDate.getDay();
-        const pares = sessoesFuturas
+        const candidatos = sessoesFuturas
           .map((s) => ({ id: s.id, de: s.Data, para: shiftSessao(s, delta, horaEdit) }))
           .filter((p): p is { id: number; de: string; para: string } => !!p.de && !!p.para);
+        // O deslocamento pode jogar uma sessão futura em cima de feriado ou do
+        // almoço. Essa fica onde está (não é movida) em vez de derrubar toda a
+        // propagação — e a recepção é avisada de quantas ficaram para trás.
+        const pares = candidatos.filter((p) => !motivoBloqueio(p.para, bloqueios));
+        const bloqueadasFuturas = candidatos.length - pares.length;
         const { updated, conflicts } = await reagendarMutation.mutateAsync(
           pares.map((p) => ({ id: p.id, data: p.para })),
         );
@@ -281,7 +297,10 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
         if (conflicts === 0) mudancasFuturas = pares.map(({ de, para }) => ({ de, para }));
         toast.success(
           `Agendamento atualizado! ${updated} ${updated === 1 ? "sessão futura remarcada" : "sessões futuras remarcadas"}.` +
-            (conflicts > 0 ? ` ${conflicts} não ${conflicts === 1 ? "movida" : "movidas"} (horário já ocupado).` : ""),
+            (conflicts > 0 ? ` ${conflicts} não ${conflicts === 1 ? "movida" : "movidas"} (horário já ocupado).` : "") +
+            (bloqueadasFuturas > 0
+              ? ` ${bloqueadasFuturas} não ${bloqueadasFuturas === 1 ? "movida" : "movidas"} (cairia em feriado ou no almoço).`
+              : ""),
         );
       } else {
         toast.success("Agendamento atualizado!");

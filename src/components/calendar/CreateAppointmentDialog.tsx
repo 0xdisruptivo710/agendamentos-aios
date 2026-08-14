@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,8 @@ import { monitorEspelhoInfosoft } from "@/lib/infosoft-monitor";
 import { mergeCategorias, useCategorias } from "@/hooks/useCategorias";
 import { ORIGEM_OPCOES } from "@/lib/agendamento-status";
 import { generateOccurrences, normalizePhoneBR, singleOccurrence, WEEKDAYS } from "@/lib/agendamento-create";
+import { motivoBloqueio, primeiraBloqueada } from "@/lib/agenda-bloqueios";
+import { useBloqueios } from "@/hooks/useFeriados";
 import { cn } from "@/lib/utils";
 import type { EventSuggestions } from "@/components/calendar/EventDetailDialog";
 
@@ -68,13 +70,26 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
   const { data: categoriasExtras } = useCategorias();
   const categorias = mergeCategorias(cfg?.categorias ?? ["Avaliação", "Agendamento"], categoriasExtras);
 
-  const datas = useMemo(
-    () =>
-      recorrente
-        ? generateOccurrences({ startDate: dataInicio, time: horario, weekdays, count: numSessoes })
-        : singleOccurrence(dataUnica, horario),
-    [recorrente, dataInicio, horario, weekdays, numSessoes, dataUnica],
+  // Almoço e feriado (só nas unidades que declaram; nas demais vem tudo vazio
+  // e nada é bloqueado).
+  const bloqueios = useBloqueios();
+  const ehBloqueada = useCallback(
+    (d: string) => motivoBloqueio(d, bloqueios) !== null,
+    [bloqueios],
   );
+
+  // Na recorrência a data bloqueada é PULADA e a série segue até completar o
+  // número de sessões — feriado no meio não pode fazer o paciente perder
+  // sessão. `puladas` existe só para avisar quantas saíram do caminho.
+  const { datas, puladas } = useMemo(() => {
+    if (!recorrente) return { datas: singleOccurrence(dataUnica, horario), puladas: 0 };
+    const entrada = { startDate: dataInicio, time: horario, weekdays, count: numSessoes };
+    const semBloqueio = generateOccurrences(entrada);
+    return {
+      datas: generateOccurrences(entrada, ehBloqueada),
+      puladas: semBloqueio.filter(ehBloqueada).length,
+    };
+  }, [recorrente, dataInicio, horario, weekdays, numSessoes, dataUnica, ehBloqueada]);
 
   const toggleWeekday = (v: number) =>
     setWeekdays((prev) => (prev.includes(v) ? prev.filter((d) => d !== v) : [...prev, v].sort((a, b) => a - b)));
@@ -84,7 +99,19 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
     const tel = normalizePhoneBR(telefone);
     if (!tel) return toast.error("Telefone inválido");
     if (recorrente && weekdays.length === 0) return toast.error("Selecione ao menos um dia da semana");
-    if (datas.length === 0) return toast.error("Nenhuma data para agendar");
+    if (datas.length === 0) {
+      return toast.error(
+        puladas > 0
+          ? "Todas as datas caem em feriado ou no horário de almoço. Escolha outro horário."
+          : "Nenhuma data para agendar",
+      );
+    }
+    // Almoço/feriado. Na recorrência as datas já vêm filtradas; isto pega a
+    // data única e serve de rede para qualquer caminho que escape do filtro.
+    const bloqueada = primeiraBloqueada(datas, bloqueios);
+    if (bloqueada) {
+      return toast.error(`Não é possível agendar em ${bloqueada.data}: ${bloqueada.motivo}.`);
+    }
     // Espelho Infosoft: o POST /agendar do ERP exige o serviço (servicoUuid),
     // resolvido pelo de-para categoria -> serviço. Sem categoria o espelho
     // nunca fecharia — por isso ela é obrigatória nas unidades com infosoft.
@@ -277,6 +304,12 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
                     </span>{" "}
                     {datas.slice(0, 6).join(" · ")}
                     {datas.length > 6 ? ` · +${datas.length - 6}` : ""}
+                    {puladas > 0 ? (
+                      <span className="mt-1 block text-amber-700">
+                        {puladas} {puladas === 1 ? "data pulada" : "datas puladas"} (feriado ou
+                        horário de almoço) — a série seguiu para as próximas.
+                      </span>
+                    ) : null}
                   </>
                 )}
               </p>

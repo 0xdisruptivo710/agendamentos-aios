@@ -23,7 +23,16 @@ export interface RecurrenceInput {
 // Gera as datas ("dd/MM/yyyy HH:mm") de uma recorrência: caminha dia a dia a
 // partir de startDate e emite as que caem nos dias da semana escolhidos, até
 // atingir `count` sessões. Horário fixo em todas (casa com "Horário Fixo" da base).
-export function generateOccurrences({ startDate, time, weekdays, count }: RecurrenceInput): string[] {
+//
+// `bloqueado` é opcional: quando informado, a data que ele recusar (feriado,
+// almoço) é PULADA e a série continua até completar `count` — assim o paciente
+// não perde sessão por causa de feriado no meio. Sem o parâmetro o
+// comportamento é idêntico ao de antes, então as unidades que não usam
+// bloqueio não mudam em nada.
+export function generateOccurrences(
+  { startDate, time, weekdays, count }: RecurrenceInput,
+  bloqueado?: (dataStr: string) => boolean,
+): string[] {
   const out: string[] = [];
   if (!startDate || !time || count <= 0) return out;
   const days = new Set(weekdays);
@@ -34,7 +43,10 @@ export function generateOccurrences({ startDate, time, weekdays, count }: Recurr
   const cursor = new Date(y, m - 1, d, hh, mm, 0, 0);
   let guard = 0;
   while (out.length < count && guard < 366 * 3) {
-    if (days.has(cursor.getDay())) out.push(format(cursor, "dd/MM/yyyy HH:mm"));
+    if (days.has(cursor.getDay())) {
+      const s = format(cursor, "dd/MM/yyyy HH:mm");
+      if (!bloqueado || !bloqueado(s)) out.push(s);
+    }
     cursor.setDate(cursor.getDate() + 1);
     guard++;
   }

@@ -343,13 +343,17 @@ export const UNITS: Unit[] = [
   { slug: "odontocompany-vila-helena", label: "OdontoCompany Vila Helena", table: "vw_agendamento_odonto_vila_helena",  respStyle: "accented",
     config: {
       ...ODONTOCOMPANY_CONFIG,
-      horarioUnico: true, // pedido do cliente: 1 paciente por horário na VH
+      // Vila Helena atende mais de um paciente no mesmo horário — sem trava.
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_agendamento_vh",
       webhookPresenca: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_presenca",
     } },
   { slug: "odontocompany-santa-rosalia", label: "OdontoCompany Santa Rosália", table: "vw_agendamento_odonto_santa_rosalia", respStyle: "accented",
     config: {
       ...ODONTOCOMPANY_CONFIG,
+      // Só a Santa Rosália trabalha com 1 paciente por horário (18/08). A trava
+      // vale no painel; agendamento criado pela automação do WhatsApp não passa
+      // por aqui e ainda consegue duplicar o horário.
+      horarioUnico: true,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_agendamento_sr",
       webhookPresenca: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_odonto_presenca",
     } },

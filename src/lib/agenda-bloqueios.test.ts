@@ -104,6 +104,22 @@ describe("alcance do bloqueio no registry", () => {
   });
 });
 
+describe("horário único por unidade", () => {
+  // Ficou invertido por um tempo (a trava estava na VH) e ninguém notou até o
+  // cliente reclamar. Regra: só a Santa Rosália atende 1 paciente por horário.
+  const u = (slug: string) => UNITS.find((x) => x.slug === slug)!;
+
+  it("Santa Rosália trava 2 no mesmo horário", () => {
+    expect(u("odontocompany-santa-rosalia").config?.horarioUnico).toBe(true);
+  });
+  it("Vila Helena NÃO trava", () => {
+    expect(u("odontocompany-vila-helena").config?.horarioUnico).toBeFalsy();
+  });
+  it("a agenda geral não trava (mistura as duas unidades)", () => {
+    expect(u("odontocompany").config?.horarioUnico).toBeFalsy();
+  });
+});
+
 describe("generateOccurrences com skip", () => {
   it("pula data bloqueada e segue até completar a contagem", () => {
     // Quartas a partir de 30/12/2026: 30/12 passa, 06/01 passa...

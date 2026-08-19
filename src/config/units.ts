@@ -241,6 +241,32 @@ export const UNITS: Unit[] = [
   { slug: "itupeva",               label: "Face Doctor Itupeva",           table: "itupevaclinics_agendamento",         respStyle: "ascii",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_itupeva" } },
+  // FD Jundiaí (2026-08-18): unidade nova, nasceu direto na arquitetura final —
+  // tabela criada do zero (índice único PLENO, sem legado) e workflow
+  // "Agendamento Inteligente - Jundiaí" (c439iWYeHzuxDLA1) já lendo o Supabase.
+  // Categorias = o set de procedimentos curado da rede FD, o mesmo que subiu
+  // como etiqueta no WTS da unidade.
+  { slug: "jundiai",               label: "Face Doctor Jundiaí",           table: "Agendamento_Jundiai",                respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Botox",
+        "Preenchimento Facial",
+        "Preenchimento Labial",
+        "Bioestimulador",
+        "Skinbooster",
+        "Microagulhamento",
+        "Peeling",
+        "Limpeza de Pele",
+        "Laser Lavieen",
+        "Ultraformer",
+        "Fios de PDO",
+        "Enzimas",
+        "Lipo de Papada",
+        "Harmonização Facial",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_jundiai" } },
   { slug: "londrina",              label: "Face Doctor Londrina",          table: "Agendamento_Londrina",               respStyle: "ascii",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_londrina" } },

@@ -19,6 +19,9 @@ const PALETA: Record<string, { dot: string; chip: string }> = {
   verde:    { dot: "bg-emerald-500", chip: "bg-emerald-500/12 text-emerald-600" },
   laranja:  { dot: "bg-orange-500",  chip: "bg-orange-500/12 text-orange-600" },
   rosa:     { dot: "bg-pink-500",    chip: "bg-pink-500/12 text-pink-600" },
+  // Pedido da Fisio Vida (Ana Carolina, 2026-08-20). O tema do painel é claro,
+  // então o quase-preto tem contraste de sobra.
+  preto:    { dot: "bg-neutral-900", chip: "bg-neutral-900/10 text-neutral-900" },
 };
 
 // Normalização de texto pt-BR (sem acento/caixa) — usada aqui no match de

@@ -299,6 +299,42 @@ export function useReagendarSessoes() {
   });
 }
 
+// Preenche/corrige o telefone de várias sessões do paciente (config.editarTelefone).
+// Linha a linha: colisão com o índice único (Telefone, Data) significa que já
+// existe sessão com esse fone naquela data — conta como conflito (duplicata) em
+// vez de quebrar o lote. A coluna física vem do config (ex.: Fisio Vida = Telefone).
+export function useAtualizarTelefone() {
+  const unit = useUnit();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ ids, telefone }: { ids: number[]; telefone: string }) => {
+      const phoneCol = unit.config?.phoneCol ?? "Número";
+      let updated = 0;
+      let conflicts = 0;
+      let lastError: string | null = null;
+      for (const id of ids) {
+        const { error } = await supabase
+          .from(unit.table)
+          .update({ [phoneCol]: telefone })
+          .eq("id", id);
+        if (!error) {
+          updated++;
+        } else if ((error as { code?: string }).code === "23505") {
+          conflicts++; // já existe sessão desse (Telefone, Data) — linha duplicada
+        } else {
+          lastError = error.message;
+        }
+      }
+      if (updated === 0 && conflicts === 0 && lastError) throw new Error(lastError);
+      return { updated, conflicts };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["agendamentos", unit.table] });
+    },
+  });
+}
+
 export function useUpdateAgendamento() {
   const unit = useUnit();
   const queryClient = useQueryClient();

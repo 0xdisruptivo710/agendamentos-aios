@@ -19,7 +19,7 @@ function normName(s: string | null | undefined): string {
 }
 
 // Mesmo paciente: pelo telefone quando ambos têm; senão pelo nome normalizado.
-function samePatient(a: Agendamento, b: Agendamento): boolean {
+export function samePatient(a: Agendamento, b: Agendamento): boolean {
   const telA = (a["Número"] ?? "").replace(/\D/g, "");
   const telB = (b["Número"] ?? "").replace(/\D/g, "");
   if (telA && telB) return telA === telB;

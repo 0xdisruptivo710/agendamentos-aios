@@ -9,9 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles, CalendarCheck, CalendarX, UserCheck, Building2, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { useUpdateAgendamento, useDeleteAgendamento, useDeleteAgendamentos, useReagendarSessoes } from "@/hooks/useAgendamentos";
+import { useUpdateAgendamento, useDeleteAgendamento, useDeleteAgendamentos, useReagendarSessoes, useAtualizarTelefone } from "@/hooks/useAgendamentos";
 import { useCategorias, mergeCategorias } from "@/hooks/useCategorias";
-import { buildDataString, findFutureSiblings, sessoesFuturasDoPaciente, shiftSessao } from "@/lib/agendamento-reagendar";
+import { buildDataString, findFutureSiblings, samePatient, sessoesFuturasDoPaciente, shiftSessao } from "@/lib/agendamento-reagendar";
+import { normalizePhoneBR } from "@/lib/agendamento-create";
 import { motivoBloqueio } from "@/lib/agenda-bloqueios";
 import { useBloqueios } from "@/hooks/useFeriados";
 import { firePainelWebhook } from "@/lib/painel-webhook";
@@ -117,6 +118,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const [justificativa, setJustificativa] = useState<string>("");
   const [dataEdit, setDataEdit] = useState<string>("");   // "yyyy-MM-dd"
   const [horaEdit, setHoraEdit] = useState<string>("");   // "HH:mm"
+  const [telEdit, setTelEdit] = useState<string>("");     // config.editarTelefone
   const [aplicarFuturas, setAplicarFuturas] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmDeleteFuturas, setConfirmDeleteFuturas] = useState(false);
@@ -129,6 +131,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const deleteMutation = useDeleteAgendamento();
   const deleteFuturasMutation = useDeleteAgendamentos();
   const reagendarMutation = useReagendarSessoes();
+  const telefoneMutation = useAtualizarTelefone();
   const { data: categoriasExtras } = useCategorias();
 
   useEffect(() => {
@@ -149,6 +152,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
       setJustificativa(event.Justificativa || "");
       setDataEdit(event.parsedDate ? format(event.parsedDate, "yyyy-MM-dd") : "");
       setHoraEdit(event.parsedDate ? format(event.parsedDate, "HH:mm") : "");
+      setTelEdit(event["Número"] || "");
       setAplicarFuturas(false);
       presencaNotificada.current = event.Presenca ?? null;
     }
@@ -168,6 +172,17 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
     [cfg?.excluirFuturos, event, agendamentos],
   );
 
+  // Demais sessões do MESMO paciente que estão sem telefone — o salvar do
+  // telefone (config.editarTelefone) preenche todas de uma vez, porque linha
+  // sem fone não aparece para a IA nem recebe lembrete.
+  const semFoneDoPaciente = useMemo(
+    () =>
+      cfg?.editarTelefone && event && agendamentos
+        ? agendamentos.filter((a) => a.id !== event.id && !(a["Número"] ?? "").trim() && samePatient(a, event))
+        : [],
+    [cfg?.editarTelefone, event, agendamentos],
+  );
+
   if (!event) return null;
 
   const categorias = mergeCategorias(cfg?.categorias ?? ["Avaliação", "Agendamento"], categoriasExtras);
@@ -181,6 +196,29 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const origData = parsedDate ? format(parsedDate, "yyyy-MM-dd") : "";
   const origHora = parsedDate ? format(parsedDate, "HH:mm") : "";
   const dataAlterada = !!cfg?.editarData && !!dataEdit && !!horaEdit && (dataEdit !== origData || horaEdit !== origHora);
+  const telAlterado = !!cfg?.editarTelefone && telEdit.trim() !== (event["Número"] ?? "");
+
+  // Salva o telefone na sessão aberta E nas demais sessões do paciente que
+  // estão sem fone. Conflito 23505 = já existe sessão (Telefone, Data) — a
+  // linha era duplicata e fica para a rotina de higiene apagar.
+  const handleSaveTelefone = async () => {
+    const tel = normalizePhoneBR(telEdit);
+    if (!tel) {
+      toast.error("Telefone inválido");
+      return;
+    }
+    try {
+      const ids = [event.id, ...semFoneDoPaciente.map((a) => a.id)];
+      const { updated, conflicts } = await telefoneMutation.mutateAsync({ ids, telefone: tel });
+      toast.success(
+        (updated === 1 ? "Telefone salvo em 1 sessão" : `Telefone salvo em ${updated} sessões`) +
+          (conflicts > 0 ? ` · ${conflicts} já existia${conflicts > 1 ? "m" : ""} nesse horário` : ""),
+      );
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "";
+      toast.error("Erro ao salvar telefone" + (msg ? ": " + msg : ""));
+    }
+  };
 
   const presencaOptions: SegOption[] = [
     { value: PRESENCA.COMPARECEU, label: "Compareceu", activeClass: ACTIVE_TONE.success },
@@ -470,7 +508,38 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
                 <Phone className="h-4 w-4 text-primary" />
                 <span className="text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Telefone</span>
               </div>
-              <p className="text-sm font-bold text-foreground">{event["Número"] || "Não informado"}</p>
+              {cfg?.editarTelefone ? (
+                <div className="space-y-1.5">
+                  <Input
+                    value={telEdit}
+                    onChange={(e) => setTelEdit(e.target.value)}
+                    placeholder="(51) 99999-9999"
+                    className="border-border bg-secondary/50"
+                  />
+                  {!event["Número"] && !telAlterado && (
+                    <p className="text-[11px] font-semibold text-amber-700">
+                      Sem telefone: o paciente fica invisível para a IA e não recebe lembretes.
+                    </p>
+                  )}
+                  {telAlterado && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSaveTelefone}
+                      disabled={telefoneMutation.isPending}
+                      className="w-full"
+                    >
+                      {telefoneMutation.isPending
+                        ? "Salvando..."
+                        : semFoneDoPaciente.length > 0
+                          ? `Salvar telefone (+${semFoneDoPaciente.length} ${semFoneDoPaciente.length > 1 ? "sessões" : "sessão"} sem fone)`
+                          : "Salvar telefone"}
+                    </Button>
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm font-bold text-foreground">{event["Número"] || "Não informado"}</p>
+              )}
             </div>
           </div>
 

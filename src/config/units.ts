@@ -34,6 +34,10 @@ export interface UnitConfig {
   // nomes da base + legenda de cores clicável. Match por prefixo normalizado.
   filtroProfissional?: boolean;
   editarData?: boolean;  // editar data/horário no modal (+ propagar às sessões futuras)
+  // Editar/adicionar o telefone no modal de detalhes. Ao salvar, preenche também
+  // as demais sessões do MESMO paciente que estão sem telefone (linha sem fone é
+  // invisível para a IA e para os lembretes — herança de import sem match).
+  editarTelefone?: boolean;
   addCategorias?: boolean; // cadastro de categorias extras pela UI (tabela painel_categorias)
   addProcedimentos?: boolean; // cadastro de procedimentos pela UI (tabela painel_procedimentos)
   // Cor por profissional (Resp. atendimento): primeiro nome -> cor da paleta
@@ -230,6 +234,33 @@ export const UNITS: Unit[] = [
       // do n8n bloqueia o save por 2 nós órfãos PRÉ-EXISTENTES ("Marca Cancelado
       // Supabase1" e "Filter5"). Limpar os órfãos na UI e reaplicar a receita.
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_estudio_mais" } },
+  // GioLaser Praia Grande (2026-08-25): unidade nova, nasceu direto na
+  // arquitetura final (padrão Jundiaí) — tabela criada do zero (índice único
+  // PLENO, sem legado) e workflow "Agendamento Inteligente - GioLaser Praia
+  // Grande" (bipbUXc7cAQsVh3Y) lendo o Supabase. HOF estilo Face Doctor +
+  // depilação a laser; categorias = set curado da rede FD trocando Lavieen
+  // por Depilação a Laser.
+  { slug: "giolaser-praia-grande", label: "GioLaser Praia Grande",         table: "Agendamento_GioLaser_PraiaGrande",   respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Depilação a Laser",
+        "Botox",
+        "Preenchimento Facial",
+        "Preenchimento Labial",
+        "Bioestimulador",
+        "Skinbooster",
+        "Microagulhamento",
+        "Peeling",
+        "Limpeza de Pele",
+        "Ultraformer",
+        "Fios de PDO",
+        "Enzimas",
+        "Lipo de Papada",
+        "Harmonização Facial",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_giolaser_praia_grande" } },
   { slug: "harmonize",             label: "Harmonize",                     table: "Agendamento_Harmonize",              respStyle: "accented",
     config: { ...ESTETICA_ROLLOUT,
       // Ramo instalado, mas o token WTS da unidade retornou 401 (vencido) —
@@ -339,6 +370,7 @@ export const UNITS: Unit[] = [
       busca: true,
       filtroProfissional: true,
       editarData: true,
+      editarTelefone: true,
       addCategorias: true,
       addProcedimentos: true,
       // Cores pedidas pela clínica (2026-07-28). A tabela guarda o nome completo

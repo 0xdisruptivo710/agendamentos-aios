@@ -441,6 +441,27 @@ export const UNITS: Unit[] = [
         "Milla": "rosa",
       },
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_virtuosa" } },
+  // Clínica Virtuosa Apucarana (2026-09-04): MESMA FRANQUIA da Virtuosa
+  // Londrina, conta WTS separada (company fad6d965-...). Estrutura duplicada da
+  // irmã: mesma tabela-modelo, mesmo workflow, mesmas categorias. Sem `cores`
+  // porque as especialistas da unidade ainda não foram informadas — entram pelo
+  // cadastro de atendentes na UI, que já define a cor.
+  { slug: "virtuosa-apucarana",    label: "Clínica Virtuosa Apucarana",    table: "Agendamento_Virtuosa_Apucarana",     respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Botox",
+        "Harmonização Facial",
+        "Preenchimento Labial",
+        "Preenchimento Glúteo",
+        "Preenchimento de Bigode Chinês",
+        "Depilação a Laser",
+        "Enzimas de Emagrecimento",
+        "Mini Lipo",
+        "Protocolo das Famosas",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_virtuosa_apucarana" } },
 ];
 
 export function getUnitBySlug(slug: string | undefined): Unit | undefined {

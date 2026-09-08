@@ -234,6 +234,41 @@ export const UNITS: Unit[] = [
       // do n8n bloqueia o save por 2 nós órfãos PRÉ-EXISTENTES ("Marca Cancelado
       // Supabase1" e "Filter5"). Limpar os órfãos na UI e reaplicar a receita.
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_estudio_mais" } },
+  // GIO Anália Franco (2026-09-08): unidade nova da rede GioLaser, NÃO confundir
+  // com a `analia` (Face Doctor Anália Franco), que é outra clínica e outra
+  // company na WTS. Nasceu direto na arquitetura final: tabela criada do zero
+  // (índice único PLENO, sem legado) e workflow "Agendamento Inteligente - GIO
+  // Anália Franco" (I8NBgxJmpQcdRuBh), clone do Praia Grande. Categorias = as
+  // 22 etiquetas de procedimento criadas no WTS da unidade + Avaliação/Retorno.
+  { slug: "giolaser-analia-franco", label: "GIO Anália Franco",             table: "Agendamento_GioLaser_AnaliaFranco", respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Depilação a Laser",
+        "Botox",
+        "Preenchimento",
+        "Bioestimulador",
+        "Skinbooster",
+        "Fios PDO",
+        "Harmonização Facial",
+        "Limpeza de Pele",
+        "Hidratação Facial",
+        "Peeling",
+        "Microagulhamento",
+        "Jato de Plasma",
+        "Revitalização",
+        "Laser Lavieen",
+        "Laser Etherea",
+        "Remoção de Tatuagem",
+        "Vasinhos",
+        "Criolipólise",
+        "Enzima de Gordura",
+        "Enzima de Flacidez",
+        "Drenagem Linfática",
+        "Glúteo Max",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_giolaser_analia_franco" } },
   // GioLaser Praia Grande (2026-08-25): unidade nova, nasceu direto na
   // arquitetura final (padrão Jundiaí) — tabela criada do zero (índice único
   // PLENO, sem legado) e workflow "Agendamento Inteligente - GioLaser Praia

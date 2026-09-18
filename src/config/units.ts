@@ -420,7 +420,17 @@ export const UNITS: Unit[] = [
     } },
   { slug: "campo-belo",            label: "Campo Belo",                    table: "Agendamento_Campo_Belo",             respStyle: "accented",
     config: { ...ESTETICA_ROLLOUT,
-      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_campo_belo" } },
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_campo_belo",
+      // Espelho no Infosoft (2026-09-18, franquia 8): criar/reagendar/excluir
+      // pelo painel reflete no ilife via "Infosoft Espelho - Campo Belo"
+      // (n8n nSZTiYotYuGvavEy). Canario validado: autorizacao criada e
+      // cancelada no ERP, horario liberado.
+      infosoft: true,
+      webhookInfosoft: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/infosoft_campo_belo",
+      // SO Avaliacao, mesmo motivo de Dourados e Perdizes: o ilife recusa
+      // procedimento avulso pela API (precisa de Orcamento ou Avaliacao).
+      categorias: ["Avaliação"],
+      addCategorias: false } },
   // OdontoCompany: rede odontológica (franquia). Mesmo layout das clínicas de
   // estética; só as categorias do "Tipo" viram procedimentos dentários e a
   // Origem (Convênio/Particular) importa mais aqui (odonto popular).

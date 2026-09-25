@@ -228,6 +228,28 @@ export const UNITS: Unit[] = [
   { slug: "elevar",                label: "Elevar",                        table: "Agendamento_Elevar",                 respStyle: "accented",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_elevar" } },
+  // Emagrecentro Teresópolis (2026-09-25): unidade nova, nasceu direto na
+  // arquitetura final (padrão Jundiaí) — tabela criada do zero (índice único
+  // PLENO, sem legado) e workflow "Agendamento Inteligente - Emagrecentro
+  // Teresópolis" lendo o Supabase. Canal é API OFICIAL (CloudAPI): confirmação
+  // e lembretes saem por TEMPLATE aprovado, não por texto livre.
+  { slug: "emagrecentro-teresopolis", label: "Emagrecentro Teresópolis",  table: "Agendamento_Emagrecentro_Teresopolis", respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Emagrecimento",
+        "Enzimas para Gordura Localizada",
+        "Lipocavitação",
+        "Tratamento Corporal",
+        "Flacidez",
+        "Celulite",
+        "Glúteos",
+        "Botox",
+        "Preenchimento de Bigode Chinês",
+        "Estética Facial",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_emagrecentro_teresopolis" } },
   { slug: "estudio-mais",          label: "Estúdio Mais",                  table: "Agendamento_Estudio Mais",           respStyle: "ascii",
     config: { ...ESTETICA_ROLLOUT,
       // PENDENTE: o ramo do painel ainda não existe neste workflow — a validação

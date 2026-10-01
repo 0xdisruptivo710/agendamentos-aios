@@ -249,6 +249,11 @@ export const UNITS: Unit[] = [
         "Preenchimento de Bigode Chinês",
         "Retorno",
       ],
+      // Clínica não agenda em feriado (pedido de 01/10/2026). Os nacionais saem
+      // de agenda-bloqueios.ts; recesso/emenda próprios a recepção cadastra pela
+      // tela. A IA Lívia já respeita os mesmos dias pela RPC
+      // emagrecentro_horario(s)_livre(s).
+      feriados: true,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_emagrecentro_teresopolis" } },
   { slug: "estudio-mais",          label: "Estúdio Mais",                  table: "Agendamento_Estudio Mais",           respStyle: "ascii",
     config: { ...ESTETICA_ROLLOUT,

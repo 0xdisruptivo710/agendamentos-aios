@@ -366,6 +366,31 @@ export const UNITS: Unit[] = [
   { slug: "macae",                 label: "Face Doctor Macaé",             table: "Agendamento_Macae",                  respStyle: "accented",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_macae" } },
+  // FD Niterói (2026-10-07): unidade nova no padrão Jundiaí — tabela criada do
+  // zero (índice único PLENO, sem legado) e workflow "Agendamento Inteligente -
+  // FD Niterói" (clone do Jundiaí), INATIVO até a conta ganhar canal WhatsApp.
+  // Categorias = mesmo set curado da rede FD usado em Jundiaí.
+  { slug: "niteroi",               label: "Face Doctor Niterói",           table: "Agendamento_Niteroi",                respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Botox",
+        "Preenchimento Facial",
+        "Preenchimento Labial",
+        "Bioestimulador",
+        "Skinbooster",
+        "Microagulhamento",
+        "Peeling",
+        "Limpeza de Pele",
+        "Laser Lavieen",
+        "Ultraformer",
+        "Fios de PDO",
+        "Enzimas",
+        "Lipo de Papada",
+        "Harmonização Facial",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_niteroi" } },
   // Fase 2+3 direto (2026-08-05): Perdizes nasceu do zero já na arquitetura
   // final — painel completo + confirmação/lembretes n8n lendo o Supabase
   // (workflow Agendamento Inteligente - Perdizes). Agenda alimentada SÓ pelo

@@ -261,6 +261,31 @@ export const UNITS: Unit[] = [
       // do n8n bloqueia o save por 2 nós órfãos PRÉ-EXISTENTES ("Marca Cancelado
       // Supabase1" e "Filter5"). Limpar os órfãos na UI e reaplicar a receita.
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_estudio_mais" } },
+  // GIO Carapicuíba (2026-10-07): unidade nova da rede GioLaser. Nasceu direto na
+  // arquitetura final: tabela criada do zero (índice único PLENO, sem legado) e
+  // workflow "Agendamento Inteligente - GIO Carapicuíba" (xEPC0yrCwxXOUexi), clone
+  // da GIO Anália Franco. Categorias = as 13 etiquetas de procedimento que a
+  // clínica criou no WTS + Avaliação/Retorno.
+  { slug: "giolaser-carapicuiba", label: "GIO Carapicuíba",                 table: "Agendamento_GioLaser_Carapicuiba", respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Protocolo Rejuvenescimento",
+        "Botox",
+        "Bioestimulador",
+        "Fios PDO",
+        "Fios Filler",
+        "Ultraformer",
+        "Laser Lavieen",
+        "Laser Etherea",
+        "Laser",
+        "Limpeza de Pele",
+        "Microagulhamento",
+        "Corporal",
+        "Glúteos",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_giolaser_carapicuiba" } },
   // GIO Anália Franco (2026-09-08): unidade nova da rede GioLaser, NÃO confundir
   // com a `analia` (Face Doctor Anália Franco), que é outra clínica e outra
   // company na WTS. Nasceu direto na arquitetura final: tabela criada do zero

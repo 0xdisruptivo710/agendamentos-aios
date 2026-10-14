@@ -19,6 +19,10 @@ export interface UnitConfig {
   categorias?: string[]; // substitui as opções fixas do Select "Tipo"
   agendou?: boolean;     // campo "Paciente agendou?" (Sim/Não)
   origem?: boolean;      // campo "Origem do paciente" (Convênio/Particular)
+  // Relatório por NOME de convênio (Cabergs, AFISVEC, Banco Central...) e
+  // cruzamento profissional x convênio na aba Relatórios. Só faz sentido onde
+  // o convênio está escrito no Procedimento — é derivado, não é campo.
+  convenios?: RegraConvenio[];
   presenca?: boolean;    // registro de presença/falta (com/sem justificativa)
   criar?: boolean;       // botão "Novo agendamento" (+ recorrência) no painel
   excluir?: boolean;     // botão "Excluir" no modal de detalhes (DELETE no banco)
@@ -71,6 +75,16 @@ export interface UnitConfig {
   // conectado ANTES do rollout (Anália, Dourados, Perdizes, OdontoCompany)
   // ficam sem a flag: seus fluxos esperam só o evento de criação.
   webhookTodosEventos?: boolean;
+}
+
+// Regra de convênio por nome (config.convenios). `marcadores` são os pedaços de
+// texto que a clínica digita no Procedimento; o match ignora acento, caixa e
+// espaço repetido, e só casa no começo do texto ou depois de um caractere que
+// não é letra/dígito. A ORDEM do array é a ordem de teste: declare os
+// específicos antes dos genéricos. Ver src/lib/convenio.ts.
+export interface RegraConvenio {
+  nome: string;
+  marcadores: string[];
 }
 
 export interface Unit {
@@ -507,6 +521,19 @@ export const UNITS: Unit[] = [
       agendou: true,
       origem: true,
       presenca: true,
+      // Convênio por nome (pedido da Nice, 14/10/2026: "preciso dos dados que
+      // constam da agenda, por convênio Cabergs, Afisvec, Banco Central,
+      // Particulares"). A clínica não tem campo de convênio; o nome está
+      // digitado no Procedimento, com as grafias do catálogo dela
+      // (painel_procedimentos): prefixo "C-" = Cabergs, "BC" = Banco Central,
+      // "P -"/"Pro4" = particular. "cabers" é erro de digitação recorrente na
+      // base. A ordem importa: Cabergs ("c-") é o marcador mais genérico.
+      convenios: [
+        { nome: "AFISVEC", marcadores: ["afisvec"] },
+        { nome: "Banco Central", marcadores: ["banco central", "bc ", "bc5000"] },
+        { nome: "Cabergs", marcadores: ["cabergs", "cabers", "c-"] },
+        { nome: "Particular", marcadores: ["particular", "p - ", "pro4"] },
+      ],
       criar: true,
       excluir: true,
       excluirFuturos: true,

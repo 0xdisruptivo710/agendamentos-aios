@@ -9,15 +9,21 @@ import {
 import {
   DollarSign, TrendingUp, UserCog, Stethoscope, ClipboardList,
   CalendarRange, Target, BadgePercent, Sparkles, AlertCircle,
-  UserCheck, Building2, UserPlus,
+  UserCheck, Building2, UserPlus, HeartHandshake, Download,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { dayKeyFromDate } from "@/lib/agendamento-date";
 import { useUnit } from "@/context/UnitContext";
 import { PRESENCA } from "@/lib/agendamento-status";
+import {
+  CONVENIO_A_IDENTIFICAR, CONVENIO_SEM_INFO,
+  cruzadaParaCsv, cruzarProfissionalConvenio, derivarConvenios,
+} from "@/lib/convenio";
 import { AtendentesDialog } from "@/components/calendar/AtendentesDialog";
 
 interface ReportsViewProps {
@@ -64,6 +70,12 @@ const PRESENCA_COLORS: Record<string, string> = {
   [PRESENCA.FALTOU_NAO_JUSTIFICADA]: "#ef4444",
 };
 const ORIGEM_COLORS = ["#4F46E5", "#06B6D4"];
+// Convênio nomeado usa a paleta normal; os dois baldes honestos saem em âmbar
+// (dá para resolver preenchendo o Procedimento) e cinza (não há dado nenhum).
+const CONVENIO_SEM_NOME: Record<string, string> = {
+  [CONVENIO_A_IDENTIFICAR]: "#f59e0b",
+  [CONVENIO_SEM_INFO]: "#9ca3af",
+};
 
 export function ReportsView({ agendamentos }: ReportsViewProps) {
   const cfg = useUnit().config;
@@ -71,6 +83,9 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
   const [to, setTo] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
   const [selectedDay, setSelectedDay] = useState<string>(() => format(new Date(), "yyyy-MM-dd"));
   const [atendentesOpen, setAtendentesOpen] = useState(false);
+  // Fechamento com convênio se faz pelo que foi atendido; o resto da aba conta
+  // agendamento. Então o bloco de convênio tem a chave, e ela diz qual é qual.
+  const [soCompareceu, setSoCompareceu] = useState(false);
 
   const range = useMemo(() => ({
     start: startOfDay(new Date(`${from}T00:00:00`)),
@@ -152,6 +167,45 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
   }, [filtered]);
 
   const origemData = useMemo(() => countBy(filtered, (a) => a.Origem).sort((a, b) => b.value - a.value), [filtered]);
+
+  // Convênio por NOME (config.convenios). Derivado sobre a lista INTEIRA, não
+  // sobre o período: a camada que resolve os códigos soltos ("3115") olha o
+  // histórico do paciente, e recortar antes perderia o convênio de quem só tem
+  // linha solta no mês escolhido.
+  const convenios = useMemo(
+    () => derivarConvenios(agendamentos, cfg?.convenios),
+    [agendamentos, cfg?.convenios],
+  );
+  const baseConvenio = useMemo(
+    () => (soCompareceu
+      ? filtered.filter((a) => (a.Presenca ?? "").toLowerCase().includes("compareceu"))
+      : filtered),
+    [filtered, soCompareceu],
+  );
+  const porConvenio = useMemo(() => {
+    const rank = (n: string) => (n === CONVENIO_A_IDENTIFICAR ? 1 : n === CONVENIO_SEM_INFO ? 2 : 0);
+    return countBy(baseConvenio, (a) => convenios.get(a.id))
+      .sort((a, b) => rank(a.name) - rank(b.name) || b.value - a.value);
+  }, [baseConvenio, convenios]);
+  const cruzada = useMemo(
+    () => cruzarProfissionalConvenio(baseConvenio, convenios),
+    [baseConvenio, convenios],
+  );
+  // Mesma cor para o convênio nas bolinhas e na pizza (alinhada por índice).
+  const coresConvenio = useMemo(
+    () => porConvenio.map((c, i) => CONVENIO_SEM_NOME[c.name] ?? CHART_COLORS[i % CHART_COLORS.length]),
+    [porConvenio],
+  );
+
+  const baixarCruzada = () => {
+    const csv = cruzadaParaCsv(cruzada, soCompareceu ? "Atendidos" : "Agendados");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `profissional-x-convenio_${from}_a_${to}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const confirmacaoAgendou = useMemo(() => {
     const sim = filtered.filter((a) => (a.Agendou ?? "") === "Sim").length;
@@ -344,6 +398,109 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
         </>
       )}
 
+      {/* Convênio por nome (config.convenios) — Cabergs x AFISVEC x Banco
+          Central x Particular, e quantos de cada um passaram por cada
+          profissional. É o número que a clínica usa para fechar com o convênio,
+          e não existe campo para ele: vem derivado do Procedimento. */}
+      {!!cfg?.convenios?.length && (
+        <div className="glass-card space-y-4 rounded-xl p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <div className="flex items-center gap-2">
+                <HeartHandshake className="h-4 w-4 text-primary" />
+                <h3 className="text-base font-medium text-foreground">Atendimentos por profissional e convênio</h3>
+              </div>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {soCompareceu
+                  ? "Só as sessões com presença registrada como Compareceu, no período acima."
+                  : "Todas as sessões agendadas no período acima, com presença ou sem."}
+              </p>
+            </div>
+            <div className="flex shrink-0 items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Switch id="so-compareceu" checked={soCompareceu} onCheckedChange={setSoCompareceu} />
+                <Label htmlFor="so-compareceu" className="cursor-pointer text-xs text-muted-foreground">
+                  Só quem compareceu
+                </Label>
+              </div>
+              <Button variant="outline" size="sm" onClick={baixarCruzada} disabled={!cruzada.total}>
+                <Download className="mr-1.5 h-4 w-4" /> CSV
+              </Button>
+            </div>
+          </div>
+
+          {!cruzada.total ? (
+            <p className="py-10 text-center text-sm text-muted-foreground">
+              Nenhuma sessão no período {soCompareceu ? "com presença registrada" : ""}
+            </p>
+          ) : (
+            <>
+              <div className="flex flex-wrap gap-2">
+                {porConvenio.map((c, i) => (
+                  <span
+                    key={c.name}
+                    className="flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1 text-xs"
+                  >
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ background: coresConvenio[i] }}
+                    />
+                    <span className="text-foreground">{c.name}</span>
+                    <span className="font-semibold text-primary">{c.value}</span>
+                    <span className="text-muted-foreground">
+                      ({formatPercent((c.value / cruzada.total) * 100)})
+                    </span>
+                  </span>
+                ))}
+              </div>
+
+              <div className="overflow-x-auto">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Profissional</TableHead>
+                      {cruzada.colunas.map((c) => (
+                        <TableHead key={c} className="text-right">{c}</TableHead>
+                      ))}
+                      <TableHead className="text-right">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {cruzada.linhas.map((l) => (
+                      <TableRow key={l.nome}>
+                        <TableCell className="font-medium text-foreground">{l.nome}</TableCell>
+                        {l.celulas.map((v, i) => (
+                          <TableCell key={cruzada.colunas[i]} className="text-right tabular-nums">
+                            {v || <span className="text-muted-foreground/40">0</span>}
+                          </TableCell>
+                        ))}
+                        <TableCell className="text-right font-semibold tabular-nums text-primary">{l.total}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                  <TableFooter>
+                    <TableRow>
+                      <TableCell className="font-medium">Total</TableCell>
+                      {cruzada.totais.map((v, i) => (
+                        <TableCell key={cruzada.colunas[i]} className="text-right font-semibold tabular-nums">{v}</TableCell>
+                      ))}
+                      <TableCell className="text-right font-semibold tabular-nums text-primary">{cruzada.total}</TableCell>
+                    </TableRow>
+                  </TableFooter>
+                </Table>
+              </div>
+
+              <p className="text-xs text-muted-foreground/70">
+                O convênio não é um campo da agenda: vem do que está escrito no Procedimento e, quando
+                lá só tem o código, do convênio que o próprio paciente já usou nas outras sessões. A
+                coluna <strong>{CONVENIO_A_IDENTIFICAR}</strong> é de sessão marcada como convênio em
+                que o Procedimento não diz qual — escrever o nome do convênio lá resolve.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       {/* Charts grid */}
       <div className="grid gap-4 lg:grid-cols-2">
         <ChartCard
@@ -385,6 +542,16 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
           minVariation={2}
           emptyHint="Preencha o campo 'Tipo' nos agendamentos para ver a distribuição"
         />
+        {!!cfg?.convenios?.length && (
+          <ChartCard
+            title="Distribuição por convênio"
+            icon={Building2}
+            data={porConvenio}
+            kind="pie"
+            colors={coresConvenio}
+            emptyHint="Escreva o convênio no Procedimento para ver a distribuição"
+          />
+        )}
       </div>
     </motion.div>
   );

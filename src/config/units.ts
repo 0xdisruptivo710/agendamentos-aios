@@ -261,6 +261,40 @@ export const UNITS: Unit[] = [
       // do n8n bloqueia o save por 2 nós órfãos PRÉ-EXISTENTES ("Marca Cancelado
       // Supabase1" e "Filter5"). Limpar os órfãos na UI e reaplicar a receita.
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_estudio_mais" } },
+  // GIO Ribeirão Pires (2026-10-14): unidade nova da rede GioLaser. Nasceu direto
+  // na arquitetura final: tabela criada do zero (índice único PLENO, sem legado) e
+  // workflow "Agendamento Inteligente - GIO Ribeirão Pires", clone da GIO
+  // Carapicuíba. Categorias = as 22 etiquetas de procedimento criadas por API no
+  // WTS da unidade (mesmo manifesto da Anália) + Avaliação/Retorno.
+  { slug: "giolaser-ribeirao-pires", label: "GIO Ribeirão Pires",           table: "Agendamento_GioLaser_RibeiraoPires", respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Depilação a Laser",
+        "Botox",
+        "Preenchimento",
+        "Bioestimulador",
+        "Skinbooster",
+        "Fios PDO",
+        "Harmonização Facial",
+        "Limpeza de Pele",
+        "Hidratação Facial",
+        "Peeling",
+        "Microagulhamento",
+        "Jato de Plasma",
+        "Revitalização",
+        "Laser Lavieen",
+        "Laser Etherea",
+        "Remoção de Tatuagem",
+        "Vasinhos",
+        "Criolipólise",
+        "Enzima de Gordura",
+        "Enzima de Flacidez",
+        "Drenagem Linfática",
+        "Glúteo Max",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_giolaser_ribeirao_pires" } },
   // GIO Carapicuíba (2026-10-07): unidade nova da rede GioLaser. Nasceu direto na
   // arquitetura final: tabela criada do zero (índice único PLENO, sem legado) e
   // workflow "Agendamento Inteligente - GIO Carapicuíba" (xEPC0yrCwxXOUexi), clone

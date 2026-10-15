@@ -466,7 +466,8 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
           <div className="mt-3 flex items-start gap-2 rounded-lg border border-border bg-muted px-3 py-2 text-xs text-muted-foreground">
             <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
             <span>
-              O dia selecionado está <strong>fora do período</strong> definido acima. Os números abaixo refletem só esse dia, independente do filtro.
+              O dia selecionado está <strong>fora do período</strong> definido acima. Os números abaixo são só
+              desse dia, independente do período{temFiltro ? ", mas seguem o filtro escolhido" : ""}.
             </span>
           </div>
         )}

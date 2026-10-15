@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { eachDayOfInterval, format, isWithinInterval, startOfDay, endOfDay, subDays } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { motion } from "framer-motion";
@@ -9,11 +9,12 @@ import {
 import {
   DollarSign, TrendingUp, UserCog, Stethoscope, ClipboardList,
   CalendarRange, Target, BadgePercent, Sparkles, AlertCircle,
-  UserCheck, Building2, UserPlus, HeartHandshake, Download,
+  UserCheck, Building2, UserPlus, HeartHandshake, Download, X,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import type { Agendamento } from "@/hooks/useAgendamentos";
@@ -40,6 +41,17 @@ function formatCurrency(v: number) {
 
 function formatPercent(v: number) {
   return `${v.toFixed(1).replace(".", ",")}%`;
+}
+
+// Valor do SelectItem para "sem filtro": Radix não aceita value="" num item,
+// então o vazio viaja com sentinela e volta a "" no estado.
+const TODOS = "__todos__";
+
+// Nome sem acento, sem caixa e com espaço colapsado. Serve para o dropdown não
+// listar a mesma pessoa duas vezes quando a base tem "Bárbara Sena" e
+// "Barbara sena", e para o filtro casar as duas grafias.
+function chaveNome(s: string | null | undefined): string {
+  return (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
 }
 
 function countBy<T>(arr: T[], key: (i: T) => string | null | undefined) {
@@ -86,15 +98,68 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
   // Fechamento com convênio se faz pelo que foi atendido; o resto da aba conta
   // agendamento. Então o bloco de convênio tem a chave, e ela diz qual é qual.
   const [soCompareceu, setSoCompareceu] = useState(false);
+  // Filtros individuais: cada profissional consegue ver só o que é dela, e o
+  // convênio consegue ver só o que é dele. "" = sem filtro.
+  const [profFiltro, setProfFiltro] = useState("");
+  const [convFiltro, setConvFiltro] = useState("");
 
   const range = useMemo(() => ({
     start: startOfDay(new Date(`${from}T00:00:00`)),
     end: endOfDay(new Date(`${to}T00:00:00`)),
   }), [from, to]);
 
-  const filtered = useMemo(() => {
+  // Convênio por NOME (config.convenios). Derivado sobre a lista INTEIRA, não
+  // sobre o período nem sobre o filtro: a camada que resolve os códigos soltos
+  // ("3115") olha o histórico do paciente, e recortar antes perderia o convênio
+  // de quem só tem linha solta no mês escolhido.
+  const convenios = useMemo(
+    () => derivarConvenios(agendamentos, cfg?.convenios),
+    [agendamentos, cfg?.convenios],
+  );
+
+  // Opções dos dropdowns: saem da lista inteira, não do período, para a opção
+  // não sumir do dropdown quando a pessoa troca a data.
+  const profissionais = useMemo(() => {
+    const porChave = new Map<string, Map<string, number>>();
+    for (const a of agendamentos) {
+      const nome = (a.Responsavel_Atendimento ?? "").trim();
+      if (!nome) continue;
+      const k = chaveNome(nome);
+      const grafias = porChave.get(k) ?? new Map<string, number>();
+      grafias.set(nome, (grafias.get(nome) ?? 0) + 1);
+      porChave.set(k, grafias);
+    }
+    // Uma entrada por pessoa, escrita na grafia mais usada na agenda.
+    return Array.from(porChave.values())
+      .map((grafias) => Array.from(grafias.entries()).sort((a, b) => b[1] - a[1])[0][0])
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [agendamentos]);
+
+  const conveniosOpcoes = useMemo(() => {
+    const rank = (n: string) => (n === CONVENIO_A_IDENTIFICAR ? 1 : n === CONVENIO_SEM_INFO ? 2 : 0);
+    const nomes = new Set<string>();
+    for (const a of agendamentos) {
+      const c = convenios.get(a.id);
+      if (c) nomes.add(c);
+    }
+    return Array.from(nomes).sort((a, b) => rank(a) - rank(b) || a.localeCompare(b, "pt-BR"));
+  }, [agendamentos, convenios]);
+
+  const passaFiltros = useCallback((a: Agendamento) => {
+    if (profFiltro && chaveNome(a.Responsavel_Atendimento) !== chaveNome(profFiltro)) return false;
+    if (convFiltro && convenios.get(a.id) !== convFiltro) return false;
+    return true;
+  }, [profFiltro, convFiltro, convenios]);
+
+  // Período primeiro, filtro individual depois. Todo o resto da aba (KPIs,
+  // gráficos, comparecimento, cruzada e CSV) lê `filtered`, então escolher um
+  // profissional ou um convênio recorta a aba inteira, não só um quadro.
+  const noPeriodo = useMemo(() => {
     return agendamentos.filter((a) => (a.parsedDate ? isWithinInterval(a.parsedDate, range) : false));
   }, [agendamentos, range]);
+
+  const filtered = useMemo(() => noPeriodo.filter(passaFiltros), [noPeriodo, passaFiltros]);
+  const temFiltro = !!profFiltro || !!convFiltro;
 
   // KPIs corrigidos
   const comVenda = useMemo(
@@ -112,8 +177,8 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
   const dayInsideRange = isWithinInterval(dayDate, range);
   // dayKey é "yyyy-MM-dd" — mesmo formato do <input type="date">, compara direto.
   const doDia = useMemo(
-    () => agendamentos.filter((a) => a.dayKey === selectedDay),
-    [agendamentos, selectedDay],
+    () => agendamentos.filter((a) => a.dayKey === selectedDay && passaFiltros(a)),
+    [agendamentos, selectedDay, passaFiltros],
   );
   const doDiaComVenda = doDia.filter((a) => Number(a.Valor) > 0);
   const faturamentoDoDia = doDiaComVenda.reduce((acc, a) => acc + Number(a.Valor || 0), 0);
@@ -168,14 +233,6 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
 
   const origemData = useMemo(() => countBy(filtered, (a) => a.Origem).sort((a, b) => b.value - a.value), [filtered]);
 
-  // Convênio por NOME (config.convenios). Derivado sobre a lista INTEIRA, não
-  // sobre o período: a camada que resolve os códigos soltos ("3115") olha o
-  // histórico do paciente, e recortar antes perderia o convênio de quem só tem
-  // linha solta no mês escolhido.
-  const convenios = useMemo(
-    () => derivarConvenios(agendamentos, cfg?.convenios),
-    [agendamentos, cfg?.convenios],
-  );
   const baseConvenio = useMemo(
     () => (soCompareceu
       ? filtered.filter((a) => (a.Presenca ?? "").toLowerCase().includes("compareceu"))
@@ -202,7 +259,8 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
     const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
     const a = document.createElement("a");
     a.href = url;
-    a.download = `profissional-x-convenio_${from}_a_${to}.csv`;
+    const quem = [profFiltro, convFiltro].filter(Boolean).join("_").replace(/[^\p{L}\p{N}]+/gu, "-");
+    a.download = `${quem || "profissional-x-convenio"}_${from}_a_${to}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -258,7 +316,7 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
       )}
 
       {/* Filtros */}
-      <div className="glass-card rounded-xl p-5">
+      <div className="glass-card space-y-4 rounded-xl p-5">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="flex items-center gap-2">
             <CalendarRange className="h-5 w-5 text-primary" />
@@ -280,6 +338,71 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
             </div>
           </div>
         </div>
+
+        {/* Filtro individual: recorta a aba inteira para uma profissional e/ou
+            um convênio. Começa sempre em "todos", então quem não mexer aqui vê
+            exatamente o relatório de antes. */}
+        {(!!cfg?.filtroProfissional || !!cfg?.convenios?.length) && (
+          <div className="flex flex-col gap-3 border-t border-border pt-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex flex-wrap items-end gap-3">
+              {!!cfg?.filtroProfissional && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Profissional</Label>
+                  <Select
+                    value={profFiltro || TODOS}
+                    onValueChange={(v) => setProfFiltro(v === TODOS ? "" : v)}
+                  >
+                    <SelectTrigger className="h-10 w-[240px] border-border bg-card">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TODOS}>Todos os profissionais</SelectItem>
+                      {profissionais.map((n) => (
+                        <SelectItem key={n} value={n}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+              {!!cfg?.convenios?.length && (
+                <div className="space-y-1">
+                  <Label className="text-[10px] uppercase tracking-[0.12em] text-muted-foreground">Convênio</Label>
+                  <Select
+                    value={convFiltro || TODOS}
+                    onValueChange={(v) => setConvFiltro(v === TODOS ? "" : v)}
+                  >
+                    <SelectTrigger className="h-10 w-[240px] border-border bg-card">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value={TODOS}>Todos os convênios</SelectItem>
+                      {conveniosOpcoes.map((n) => (
+                        <SelectItem key={n} value={n}>{n}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {temFiltro && (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+                <span className="text-xs text-muted-foreground">
+                  Os números abaixo são só de{" "}
+                  <strong className="text-foreground">{[profFiltro, convFiltro].filter(Boolean).join(" + ")}</strong>
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2"
+                  onClick={() => { setProfFiltro(""); setConvFiltro(""); }}
+                >
+                  <X className="mr-1 h-3.5 w-3.5" /> Limpar
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* KPIs */}
@@ -431,7 +554,8 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
 
           {!cruzada.total ? (
             <p className="py-10 text-center text-sm text-muted-foreground">
-              Nenhuma sessão no período {soCompareceu ? "com presença registrada" : ""}
+              Nenhuma sessão no período{soCompareceu ? " com presença registrada" : ""}
+              {temFiltro ? " para esse filtro" : ""}
             </p>
           ) : (
             <>
@@ -511,12 +635,14 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
           minVariation={2}
           emptyHint="Cadastre 2+ responsáveis pelo agendamento para ver a distribuição"
         />
+        {/* Com uma profissional escolhida no filtro sobra 1 barra; exigir 2
+            esconderia justamente o número dela. */}
         <ChartCard
           title="Atendimentos por responsável"
           icon={Stethoscope}
           data={porAtendente}
           kind="bar"
-          minVariation={2}
+          minVariation={profFiltro ? 1 : 2}
           emptyHint="Cadastre atendentes (botão acima) e atribua nos agendamentos para ver a distribuição"
         />
         <ChartCard

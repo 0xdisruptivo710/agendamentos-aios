@@ -479,7 +479,30 @@ export const UNITS: Unit[] = [
       // não agenda procedimento avulso pela API.
       categorias: ["Avaliação"],
       addCategorias: false } },
-  { slug: "recreio",               label: "Recreio dos Bandeirantes",      table: "Agendamento_Recreiodosbandeirantes", respStyle: "accented",
+  // FD Ponta Negra (2026-10-28): Manaus, UTC-4. Tabela nova com índice único
+  // pleno e workflow "Agendamento Inteligente - FD Ponta Negra" em America/Manaus.
+  // Categorias = set da rede FD sem Laser Lavieen (a clínica não tem o aparelho).
+  { slug: "ponta-negra",           label: "Face Doctor Ponta Negra",       table: "Agendamento_PontaNegra",             respStyle: "accented",
+    config: { ...ESTETICA_ROLLOUT,
+      categorias: [
+        "Avaliação",
+        "Botox",
+        "Preenchimento Facial",
+        "Preenchimento Labial",
+        "Bioestimulador",
+        "Skinbooster",
+        "Microagulhamento",
+        "Peeling",
+        "Limpeza de Pele",
+        "Ultraformer",
+        "Fios de PDO",
+        "Enzimas",
+        "Lipo de Papada",
+        "Harmonização Facial",
+        "Retorno",
+      ],
+      webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_pontanegra" } },
+  { slug: "recreio",              label: "Recreio dos Bandeirantes",      table: "Agendamento_Recreiodosbandeirantes", respStyle: "accented",
     config: { ...ESTETICA_ROLLOUT,
       webhookAgendamento: "https://aios-n8n-webhook.yspmhc.easypanel.host/webhook/painel_fd_recreio" } },
   // Smile Skin NÃO tem automação de agenda no n8n (só a IA "smile_skin_of" —

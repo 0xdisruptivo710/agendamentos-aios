@@ -11,11 +11,20 @@ describe("deriveStatus — cadeia de prioridade", () => {
     expect(s.tone).toBe("success");
   });
 
-  it("falta justificada -> tom danger, preserva o rótulo", () => {
+  it("falta justificada -> tom warning (âmbar), preserva o rótulo", () => {
     const s = deriveStatus(ev({ Presenca: PRESENCA.FALTOU_JUSTIFICADA }));
+    expect(s.key).toBe("faltou_justificada");
+    expect(s.tone).toBe("warning");
+    expect(s.label).toBe(PRESENCA.FALTOU_JUSTIFICADA);
+  });
+
+  it("falta não justificada -> tom danger (vermelho), preserva o rótulo", () => {
+    const s = deriveStatus(ev({ Presenca: PRESENCA.FALTOU_NAO_JUSTIFICADA }));
     expect(s.key).toBe("faltou");
     expect(s.tone).toBe("danger");
-    expect(s.label).toBe(PRESENCA.FALTOU_JUSTIFICADA);
+    expect(s.label).toBe(PRESENCA.FALTOU_NAO_JUSTIFICADA);
+    expect(deriveStatus(ev({ Presenca: "Faltou (nao justificada)" })).tone).toBe("danger");
+    expect(deriveStatus(ev({ Presenca: "Faltou" })).tone).toBe("danger");
   });
 
   it("sem presença, Agendou 'Sim' => confirmado", () => {

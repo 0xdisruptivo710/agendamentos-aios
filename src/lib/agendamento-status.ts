@@ -27,6 +27,7 @@ export const PRESENCA_OPCOES = [
 export type StatusKey =
   | "compareceu"
   | "faltou"
+  | "faltou_justificada"
   | "cancelado"
   | "confirmado"
   | "reagendado"
@@ -45,6 +46,7 @@ const TONE_BY_KEY: Record<StatusKey, StatusTone> = {
   compareceu: "success",
   confirmado: "success",
   faltou: "danger",
+  faltou_justificada: "warning",
   cancelado: "danger",
   reagendado: "warning",
   custom: "primary",
@@ -61,7 +63,13 @@ export function deriveStatus(
   const presenca = (event.Presenca ?? "").trim();
   const p = presenca.toLowerCase();
   if (p.includes("compareceu")) return withTone("compareceu", PRESENCA.COMPARECEU);
-  if (p.includes("faltou") || p.includes("falta")) return withTone("faltou", presenca || "Faltou");
+  if (p.includes("faltou") || p.includes("falta")) {
+    // Justificada = âmbar, não justificada = vermelho: a recepção distingue na
+    // agenda sem abrir o modal. "não justificada" também contém "justificada".
+    const naoJustificada = /n[aã]o\s+justificad/.test(p);
+    if (!naoJustificada && p.includes("justificad")) return withTone("faltou_justificada", presenca);
+    return withTone("faltou", presenca || "Faltou");
+  }
 
   const agendou = (event.Agendou ?? "").trim().toLowerCase();
   if (agendou === "sim") return withTone("confirmado", "Confirmado");

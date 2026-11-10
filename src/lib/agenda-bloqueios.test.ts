@@ -82,10 +82,12 @@ describe("alcance do bloqueio no registry", () => {
   // vazasse para as outras fecharia a agenda de clínicas que atendem no almoço.
   const comBloqueio = UNITS.filter((u) => u.config?.almoco || u.config?.feriados).map((u) => u.slug);
 
-  it("só as 3 agendas do OdontoCompany bloqueiam", () => {
-    expect([...comBloqueio].sort()).toEqual(
-      ["odontocompany", "odontocompany-santa-rosalia", "odontocompany-vila-helena"].sort(),
-    );
+  const ODONTO = ["odontocompany", "odontocompany-santa-rosalia", "odontocompany-vila-helena"];
+  // Só feriado, sem almoço: Emagrecentro Teresópolis (01/10/2026) e Fisio Vida (10/11/2026).
+  const SO_FERIADO = ["emagrecentro-teresopolis", "fisio-vida"];
+
+  it("só as agendas que pediram bloqueiam", () => {
+    expect([...comBloqueio].sort()).toEqual([...ODONTO, ...SO_FERIADO].sort());
   });
   it("as demais unidades seguem sem almoço e sem feriado", () => {
     const outras = UNITS.filter((u) => !comBloqueio.includes(u.slug));
@@ -96,10 +98,17 @@ describe("alcance do bloqueio no registry", () => {
     }
   });
   it("as 3 agendas do Odonto usam a mesma janela 12:30-14:00", () => {
-    for (const slug of comBloqueio) {
+    for (const slug of ODONTO) {
       const u = UNITS.find((x) => x.slug === slug)!;
       expect(u.config?.almoco, slug).toEqual({ inicio: "12:30", fim: "14:00" });
       expect(u.config?.feriados, slug).toBe(true);
+    }
+  });
+  it("Emagrecentro e Fisio Vida fecham só no feriado, sem janela de almoço", () => {
+    for (const slug of SO_FERIADO) {
+      const u = UNITS.find((x) => x.slug === slug)!;
+      expect(u.config?.feriados, slug).toBe(true);
+      expect(u.config?.almoco, slug).toBeUndefined();
     }
   });
 });

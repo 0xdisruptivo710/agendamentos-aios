@@ -595,6 +595,13 @@ export const UNITS: Unit[] = [
       editarTelefone: true,
       addCategorias: true,
       addProcedimentos: true,
+      // Clínica fechada em feriado (pedido de 10/11/2026: "feriado ficava em
+      // branco e o agendamento seguia na data seguinte"; o 02/11 entrou na
+      // agenda e o paciente recebeu lembrete). Nacionais saem de
+      // agenda-bloqueios.ts; os de Porto Alegre/RS (Navegantes, Corpus Christi,
+      // Farroupilha) estão em painel_feriados e a recepção pode somar pela tela.
+      // Na recorrência a data é pulada e a série completa o nº de sessões.
+      feriados: true,
       // Cores pedidas pela clínica (2026-07-28). A tabela guarda o nome completo
       // ("Nice oliveira", "Pedro Igo Lopes Ribeiro"...), o match é por prefixo.
       cores: {

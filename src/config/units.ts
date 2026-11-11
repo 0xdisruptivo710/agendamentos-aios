@@ -55,6 +55,8 @@ export interface UnitConfig {
   // da unidade (padroeiro, emenda, recesso) são cadastrados pela tela
   // (tabela painel_feriados). Ver src/lib/agenda-bloqueios.ts.
   feriados?: boolean;
+  mostrarLembretes?: boolean;   // mostra no modal o status do lembrete (colunas "1 Dia antes"/"No dia")
+  relatorioPaciente?: boolean;  // aba Relatórios: ficha por paciente (sessões, faltas, avisos, convênio)
   webhookAgendamento?: string; // n8n: confirmação por WhatsApp ao criar agendamento pelo painel
   webhookPresenca?: string;    // n8n: NPS (Compareceu) / mensagem de falta (Faltou) ao registrar presença
   // n8n: sincroniza a presença com o card do paciente no funil do WTS
@@ -602,6 +604,12 @@ export const UNITS: Unit[] = [
       // Farroupilha) estão em painel_feriados e a recepção pode somar pela tela.
       // Na recorrência a data é pulada e a série completa o nº de sessões.
       feriados: true,
+      // Status do lembrete (véspera / no dia) no modal: o n8n grava "Enviado
+      // dd/MM HH:mm" ou "Falhou: motivo" nas colunas "1 Dia antes"/"No dia"
+      // (pedido de 11/11/2026: "foram enviados menos de 20").
+      mostrarLembretes: true,
+      // Relatório por paciente na aba Relatórios (pedido da Nice, 09/11/2026).
+      relatorioPaciente: true,
       // Cores pedidas pela clínica (2026-07-28). A tabela guarda o nome completo
       // ("Nice oliveira", "Pedro Igo Lopes Ribeiro"...), o match é por prefixo.
       cores: {

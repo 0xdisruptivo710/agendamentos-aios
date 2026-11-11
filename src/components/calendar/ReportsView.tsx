@@ -26,6 +26,7 @@ import {
   cruzadaParaCsv, cruzarProfissionalConvenio, derivarConvenios,
 } from "@/lib/convenio";
 import { AtendentesDialog } from "@/components/calendar/AtendentesDialog";
+import { PatientReport } from "@/components/calendar/PatientReport";
 
 interface ReportsViewProps {
   agendamentos: Agendamento[];
@@ -314,6 +315,8 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
           <AtendentesDialog open={atendentesOpen} onOpenChange={setAtendentesOpen} />
         </div>
       )}
+
+      {cfg?.relatorioPaciente && <PatientReport agendamentos={agendamentos} />}
 
       {/* Filtros */}
       <div className="glass-card space-y-4 rounded-xl p-5">

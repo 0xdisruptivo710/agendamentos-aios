@@ -178,7 +178,16 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const semFoneDoPaciente = useMemo(
     () =>
       cfg?.editarTelefone && event && agendamentos
-        ? agendamentos.filter((a) => a.id !== event.id && !(a["Número"] ?? "").trim() && samePatient(a, event))
+        ? agendamentos.filter((a) => {
+            if (a.id === event.id) return false;
+            const telA = (a["Número"] ?? "").replace(/\D/g, "");
+            const telEv = (event["Número"] ?? "").replace(/\D/g, "");
+            // Sem telefone e mesmo paciente (por nome), OU mesmo número antigo:
+            // corrigir o número de um paciente corrige a agenda inteira dele, senão
+            // as outras sessões seguem sem lembrete (casos Miguel, Daniele, Ari, 11/11).
+            if (!telA) return samePatient(a, event);
+            return !!telEv && telA === telEv;
+          })
         : [],
     [cfg?.editarTelefone, event, agendamentos],
   );
@@ -495,6 +504,33 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
             return <div className={`rounded-xl border px-3 py-2 text-xs font-semibold ${cls}`}>{label}</div>;
           })()}
 
+          {/* Lembretes automáticos (Fisio Vida): quem grava é o n8n, depois de
+              cada envio. A clínica não via os envios no WTS porque a conversa do
+              lembrete é encerrada e só reaparece se o paciente responder. */}
+          {cfg?.mostrarLembretes && (() => {
+            const linhas: [string, string | null][] = [
+              ["Véspera", event["1 Dia antes"]],
+              ["No dia", event["No dia"]],
+            ];
+            return (
+              <div className="flex flex-wrap gap-2">
+                {linhas.map(([rotulo, v]) => {
+                  const falhou = (v ?? "").startsWith("Falhou");
+                  const cls = !v
+                    ? "border-border bg-muted/40 text-muted-foreground"
+                    : falhou
+                      ? "border-red-500/40 bg-red-500/10 text-red-600"
+                      : "border-green-500/40 bg-green-500/10 text-green-700";
+                  return (
+                    <span key={rotulo} className={`rounded-full border px-3 py-1 text-[11px] font-semibold ${cls}`}>
+                      Lembrete {rotulo.toLowerCase()}: {v || "não enviado"}
+                    </span>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div className="glass-card rounded-xl p-3">
               <div className="mb-1 flex items-center gap-2">
@@ -532,7 +568,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
                       {telefoneMutation.isPending
                         ? "Salvando..."
                         : semFoneDoPaciente.length > 0
-                          ? `Salvar telefone (+${semFoneDoPaciente.length} ${semFoneDoPaciente.length > 1 ? "sessões" : "sessão"} sem fone)`
+                          ? `Salvar telefone (+${semFoneDoPaciente.length} ${semFoneDoPaciente.length > 1 ? "sessões" : "sessão"} do paciente)`
                           : "Salvar telefone"}
                     </Button>
                   )}

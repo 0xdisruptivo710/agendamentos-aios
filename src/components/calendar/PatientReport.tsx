@@ -8,11 +8,14 @@
 import { useMemo, useState } from "react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Search, UserSearch, X } from "lucide-react";
+import { Pencil, Search, UserSearch, X } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import type { Agendamento } from "@/hooks/useAgendamentos";
+import { useUpdateAgendamento, type Agendamento } from "@/hooks/useAgendamentos";
 import { useUnit } from "@/context/UnitContext";
 import { PRESENCA } from "@/lib/agendamento-status";
 import { derivarConvenios } from "@/lib/convenio";
@@ -37,6 +40,79 @@ function situacao(a: Agendamento, agora: Date): { texto: string; cls: string } {
   if ((a.Cancelamento ?? "").trim()) return { texto: "Avisou / desmarcou", cls: "text-purple-700" };
   if (a.parsedDate && a.parsedDate > agora) return { texto: "Agendada", cls: "text-muted-foreground" };
   return { texto: "Sem registro de presença", cls: "text-muted-foreground" };
+}
+
+// Evolução = o campo "Anotações" do agendamento (o mesmo do fim do modal da
+// agenda). Pedido da Nice (17/11/2026): ver e escrever a evolução pela ficha
+// também; grava na mesma coluna, então agenda e ficha mostram o mesmo texto.
+function EvolucaoCell({ a }: { a: Agendamento }) {
+  const update = useUpdateAgendamento();
+  const texto = (a.Anotações ?? "").trim();
+  const [editando, setEditando] = useState(false);
+  const [aberto, setAberto] = useState(false);
+  const [rascunho, setRascunho] = useState(texto);
+  const longo = texto.length > 180;
+
+  const salvar = async () => {
+    try {
+      const salvo = await update.mutateAsync({ id: a.id, updates: { Anotações: rascunho.trim() || null } });
+      if (!salvo) throw new Error("a gravação não foi confirmada");
+      toast.success("Evolução salva");
+      setEditando(false);
+    } catch (e) {
+      toast.error("Erro ao salvar evolução: " + (e instanceof Error ? e.message : String(e)));
+    }
+  };
+
+  if (editando) {
+    return (
+      <div className="min-w-[280px] space-y-2">
+        <Textarea
+          value={rascunho}
+          onChange={(e) => setRascunho(e.target.value)}
+          placeholder="Queixa do dia, conduta realizada, resposta do paciente..."
+          className="min-h-[120px] border-border bg-secondary/50 text-xs"
+          autoFocus
+        />
+        <div className="flex gap-2">
+          <Button size="sm" onClick={salvar} disabled={update.isPending}>
+            {update.isPending ? "Salvando..." : "Salvar"}
+          </Button>
+          <Button size="sm" variant="ghost" onClick={() => { setRascunho(texto); setEditando(false); }} disabled={update.isPending}>
+            Cancelar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-w-[240px] items-start gap-2">
+      <div className="flex-1 text-xs text-foreground">
+        {texto ? (
+          <>
+            <p className={`whitespace-pre-line ${longo && !aberto ? "line-clamp-3" : ""}`}>{texto}</p>
+            {longo && (
+              <button type="button" onClick={() => setAberto((v) => !v)} className="mt-1 text-[11px] font-semibold text-primary hover:underline">
+                {aberto ? "ver menos" : "ver tudo"}
+              </button>
+            )}
+          </>
+        ) : (
+          <span className="text-muted-foreground">sem evolução</span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={() => { setRascunho(texto); setEditando(true); }}
+        className="shrink-0 rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground"
+        aria-label="Escrever evolução"
+        title="Escrever evolução"
+      >
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
 }
 
 export function PatientReport({ agendamentos }: { agendamentos: Agendamento[] }) {
@@ -208,6 +284,7 @@ export function PatientReport({ agendamentos }: { agendamentos: Agendamento[] })
                   <TableHead>Serviço</TableHead>
                   <TableHead>Profissional</TableHead>
                   <TableHead>Situação</TableHead>
+                  <TableHead>Evolução</TableHead>
                   <TableHead>Observação</TableHead>
                 </TableRow>
               </TableHeader>
@@ -222,6 +299,9 @@ export function PatientReport({ agendamentos }: { agendamentos: Agendamento[] })
                       <TableCell>{a.Tipo || "-"}</TableCell>
                       <TableCell>{a.Responsavel_Atendimento || "-"}</TableCell>
                       <TableCell className={`font-medium ${s.cls}`}>{s.texto}</TableCell>
+                      <TableCell className="max-w-md align-top">
+                        <EvolucaoCell key={`${a.id}:${a.Anotações ?? ""}`} a={a} />
+                      </TableCell>
                       <TableCell className="max-w-xs text-xs text-muted-foreground">
                         {[a.Cancelamento, a.Justificativa].filter((x) => (x ?? "").trim()).join(" · ") || "-"}
                       </TableCell>

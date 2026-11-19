@@ -37,6 +37,13 @@ export interface UnitConfig {
   // Filtro por profissional (Resp. atendimento) na aba Agenda: dropdown com os
   // nomes da base + legenda de cores clicável. Match por prefixo normalizado.
   filtroProfissional?: boolean;
+  // "Resp. atendimento" escolhido numa lista fechada (cadastro de atendentes),
+  // sem texto livre. Texto livre gerava grafias diferentes da mesma pessoa.
+  profissionaisFechados?: boolean;
+  // Relatório de clínica sem venda: some com faturamento/ticket/conversão,
+  // "Quem mais agendou" e taxa de confirmação (campos que a unidade não usa
+  // e que só apareciam zerados) e os KPIs passam a ser de presença.
+  relatorioClinico?: boolean;
   editarData?: boolean;  // editar data/horário no modal (+ propagar às sessões futuras)
   // Editar/adicionar o telefone no modal de detalhes. Ao salvar, preenche também
   // as demais sessões do MESMO paciente que estão sem telefone (linha sem fone é
@@ -593,6 +600,14 @@ export const UNITS: Unit[] = [
       phoneCol: "Telefone",
       busca: true,
       filtroProfissional: true,
+      // Pedido da Nice (19/11/2026): "somente um nome dos profissionais".
+      // Base padronizada para 8 nomes (Ana Carolina -> "Ana Almeida") e o
+      // campo virou lista fechada do cadastro de atendentes.
+      profissionaisFechados: true,
+      // Conferência do relatório (19/11/2026): Valor, Agendou e
+      // Responsavel_Agendamento vazios em ~100% da base; os blocos que
+      // dependiam deles só mostravam R$ 0,00 e 0%.
+      relatorioClinico: true,
       editarData: true,
       editarTelefone: true,
       addCategorias: true,

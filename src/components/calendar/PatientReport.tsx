@@ -20,6 +20,7 @@ import { useUnit } from "@/context/UnitContext";
 import { PRESENCA } from "@/lib/agendamento-status";
 import { derivarConvenios } from "@/lib/convenio";
 import { normalizarTexto } from "@/lib/profissional-cores";
+import { agruparPorChave, chaveNome } from "@/lib/relatorio-normaliza";
 
 interface Paciente {
   chave: string;
@@ -174,8 +175,11 @@ export function PatientReport({ agendamentos }: { agendamentos: Agendamento[] })
   const etiquetas = useMemo(() => {
     if (!paciente) return { convenio: [] as string[], servicos: [] as string[], profissionais: [] as string[] };
     const todas = agendamentos.filter((a) => chavePaciente(a) === paciente.chave);
+    // Uma etiqueta por nome, mesmo com grafias diferentes na agenda.
     const uniq = (xs: (string | null | undefined)[]) =>
-      [...new Set(xs.map((x) => (x ?? "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+      agruparPorChave(xs, (x) => x, chaveNome)
+        .map((g) => g.name)
+        .sort((a, b) => a.localeCompare(b, "pt-BR"));
     return {
       convenio: uniq(todas.map((a) => convenios.get(a.id))),
       servicos: uniq(todas.map((a) => a.Tipo)),

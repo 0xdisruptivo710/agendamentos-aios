@@ -17,6 +17,7 @@ import { motivoBloqueio } from "@/lib/agenda-bloqueios";
 import { useBloqueios } from "@/hooks/useFeriados";
 import { firePainelWebhook } from "@/lib/painel-webhook";
 import { useUnit } from "@/context/UnitContext";
+import { ProfissionalField } from "@/components/calendar/ProfissionalField";
 import {
   deriveStatus,
   guessOrigem,
@@ -729,11 +730,10 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
               <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
                 <Stethoscope className="h-3.5 w-3.5 text-green-400" /> Resp. atendimento
               </Label>
-              <Input
-                list="resp-at-suggestions"
+              <ProfissionalField
+                listId="resp-at-suggestions"
                 value={respAtendimento}
-                onChange={(e) => setRespAtendimento(e.target.value)}
-                placeholder="Nome..."
+                onChange={setRespAtendimento}
                 className="border-border bg-secondary/50"
               />
             </div>

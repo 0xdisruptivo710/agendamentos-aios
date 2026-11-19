@@ -23,6 +23,7 @@
 import type { RegraConvenio } from "@/config/units";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { ORIGEM } from "@/lib/agendamento-status";
+import { chaveNome, nomeCanonicoPorChave } from "@/lib/relatorio-normaliza";
 
 // Os dois baldes honestos. Ficam sempre no fim das colunas e da legenda.
 export const CONVENIO_A_IDENTIFICAR = "Convênio (a identificar)";
@@ -166,10 +167,13 @@ export function cruzarProfissionalConvenio(
   const porProf = new Map<string, Map<string, number>>();
   const totalPorConv = new Map<string, number>();
 
+  // Mesma profissional em grafias diferentes ("Bárbara Sena"/"Barbara sena ")
+  // vira UMA linha, com a grafia mais usada.
+  const nomeCanonico = nomeCanonicoPorChave(eventos, (e) => e.Responsavel_Atendimento);
   for (const e of eventos) {
     const conv = convenios.get(e.id);
     if (!conv) continue;
-    const prof = (e.Responsavel_Atendimento ?? "").trim() || SEM_RESPONSAVEL;
+    const prof = nomeCanonico.get(chaveNome(e.Responsavel_Atendimento)) || SEM_RESPONSAVEL;
     const linha = porProf.get(prof) ?? new Map<string, number>();
     linha.set(conv, (linha.get(conv) ?? 0) + 1);
     porProf.set(prof, linha);

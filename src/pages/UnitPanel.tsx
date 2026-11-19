@@ -22,6 +22,7 @@ import { useProcedimentos } from "@/hooks/useProcedimentos";
 import { useUnit } from "@/context/UnitContext";
 import { legendaCores, matchProfissional, normalizarTexto } from "@/lib/profissional-cores";
 import { cn } from "@/lib/utils";
+import { chaveNome } from "@/lib/relatorio-normaliza";
 
 function distinct(values: (string | null)[]): string[] {
   return Array.from(new Set(values.filter((v): v is string => !!v && v.trim() !== "")))
@@ -113,10 +114,17 @@ const UnitPanel = () => {
   // Opções do dropdown de profissional: a base tem valores com espaço sobrando
   // ("Nice" e "Nice "), que o distinct trata como diferentes — dedupe trimado
   // só aqui para o dropdown não mostrar nome repetido.
-  const profissionaisFiltro = useMemo(
-    () => Array.from(new Set(suggestions.respAtendimento.map((n) => n.trim()).filter(Boolean))),
-    [suggestions.respAtendimento],
-  );
+  // Com lista fechada (config.profissionaisFechados) o dropdown é o cadastro;
+  // senão, uma entrada por nome normalizado (sem acento/caixa/espaço).
+  const profissionaisFiltro = useMemo(() => {
+    if (cfg?.profissionaisFechados && atendenteNomes.length) return atendenteNomes;
+    const porChave = new Map<string, string>();
+    for (const n of suggestions.respAtendimento) {
+      const t = n.trim();
+      if (t && !porChave.has(chaveNome(t))) porChave.set(chaveNome(t), t);
+    }
+    return Array.from(porChave.values());
+  }, [suggestions.respAtendimento, cfg?.profissionaisFechados, atendenteNomes]);
 
   const stats = useMemo(() => {
     if (!agendamentos) return { total: 0, today: 0, confirmed: 0, pending: 0 };

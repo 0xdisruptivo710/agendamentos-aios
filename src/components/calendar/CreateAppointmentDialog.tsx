@@ -10,6 +10,7 @@ import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import { useUnit } from "@/context/UnitContext";
+import { ProfissionalField } from "@/components/calendar/ProfissionalField";
 import { useAgendamentos, useCreateAgendamentos } from "@/hooks/useAgendamentos";
 import { firePainelWebhook } from "@/lib/painel-webhook";
 import { monitorEspelhoInfosoft } from "@/lib/infosoft-monitor";
@@ -356,7 +357,7 @@ export function CreateAppointmentDialog({ open, onOpenChange, suggestions }: Cre
               <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
                 <Stethoscope className="h-3.5 w-3.5 text-primary" /> Resp. atendimento
               </Label>
-              <Input list="create-resp-at-suggestions" value={respAtendimento} onChange={(e) => setRespAtendimento(e.target.value)} placeholder="Nome..." className="border-border bg-secondary/50" />
+              <ProfissionalField listId="create-resp-at-suggestions" value={respAtendimento} onChange={setRespAtendimento} className="border-border bg-secondary/50" />
             </div>
           </div>
 

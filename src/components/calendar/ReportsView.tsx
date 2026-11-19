@@ -27,6 +27,9 @@ import {
 } from "@/lib/convenio";
 import { AtendentesDialog } from "@/components/calendar/AtendentesDialog";
 import { PatientReport } from "@/components/calendar/PatientReport";
+import {
+  agruparPorChave, chaveNome, chaveProcedimento, rotuloProcedimento, tipoDoProcedimento,
+} from "@/lib/relatorio-normaliza";
 
 interface ReportsViewProps {
   agendamentos: Agendamento[];
@@ -47,13 +50,6 @@ function formatPercent(v: number) {
 // Valor do SelectItem para "sem filtro": Radix não aceita value="" num item,
 // então o vazio viaja com sentinela e volta a "" no estado.
 const TODOS = "__todos__";
-
-// Nome sem acento, sem caixa e com espaço colapsado. Serve para o dropdown não
-// listar a mesma pessoa duas vezes quando a base tem "Bárbara Sena" e
-// "Barbara sena", e para o filtro casar as duas grafias.
-function chaveNome(s: string | null | undefined): string {
-  return (s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
-}
 
 function countBy<T>(arr: T[], key: (i: T) => string | null | undefined) {
   const map = new Map<string, number>();
@@ -187,21 +183,25 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
 
   // Charts
   const porAgendador = useMemo(
-    () => countBy(filtered, (a) => a.Responsavel_Agendamento).sort((a, b) => b.value - a.value),
+    () => agruparPorChave(filtered, (a) => a.Responsavel_Agendamento, chaveNome).sort((a, b) => b.value - a.value),
     [filtered],
   );
   const porAtendente = useMemo(
-    () => countBy(filtered, (a) => a.Responsavel_Atendimento).sort((a, b) => b.value - a.value),
+    () => agruparPorChave(filtered, (a) => a.Responsavel_Atendimento, chaveNome).sort((a, b) => b.value - a.value),
     [filtered],
   );
   const porTipo = useMemo(
     () => {
-      const counts = countBy(filtered, (a) => a.Tipo);
-      const semTipo = filtered.filter((a) => !a.Tipo).length;
+      // Tipo vazio é deduzido do Procedimento quando ele traz o nome da
+      // categoria por extenso ("C- 20103115 Atividade Reflexa"); código solto
+      // continua "Sem tipo" em vez de virar palpite.
+      const tipoDe = (a: Agendamento) => a.Tipo || tipoDoProcedimento(a.Procedimento, cfg?.categorias);
+      const counts = countBy(filtered, tipoDe);
+      const semTipo = filtered.filter((a) => !tipoDe(a)).length;
       if (semTipo > 0) counts.push({ name: "Sem tipo", value: semTipo });
       return counts;
     },
-    [filtered],
+    [filtered, cfg?.categorias],
   );
   const vendasPorAtendente = useMemo(
     () => sumBy(filtered, (a) => a.Responsavel_Atendimento, (a) => Number(a.Valor) || 0)
@@ -209,7 +209,12 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
     [filtered],
   );
   const topProcedimentos = useMemo(
-    () => countBy(filtered, (a) => a.Procedimento).sort((a, b) => b.value - a.value).slice(0, 8),
+    // Agrupado pela chave do procedimento: "3115", " cabergs 3115" e
+    // "3115 cabergs" são o mesmo item, não três barras.
+    () => agruparPorChave(filtered, (a) => a.Procedimento, chaveProcedimento)
+      .map((g) => ({ ...g, name: rotuloProcedimento(g.name) }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 8),
     [filtered],
   );
 
@@ -297,13 +302,36 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
     setTo(format(new Date(), "yyyy-MM-dd"));
   };
 
-  const kpis = [
-    { label: "Faturamento", value: formatCurrency(faturamento), icon: DollarSign },
-    { label: "Atendimentos", value: totalAgendamentos, icon: ClipboardList },
-    { label: "Com venda", value: totalComVenda, icon: Sparkles },
-    { label: "Conversão", value: formatPercent(conversao), icon: BadgePercent },
-    { label: "Ticket médio", value: formatCurrency(ticketMedio), icon: TrendingUp },
-  ];
+  // Clínica sem venda (config.relatorioClinico): os KPIs são de presença.
+  // "Agendadas" conta tudo que estava na agenda; "Atendidas" só Compareceu.
+  // Antes o cartão se chamava "Atendimentos" e contava as faltas junto.
+  const clinico = !!cfg?.relatorioClinico;
+  const agora = new Date();
+  const semRegistro = filtered.filter(
+    (a) => !a.Presenca && a.parsedDate && a.parsedDate < agora,
+  ).length;
+  const kpis = clinico
+    ? [
+        { label: "Agendadas", value: totalAgendamentos, icon: ClipboardList },
+        { label: "Atendidas", value: comparecimento.compareceu, icon: UserCheck },
+        { label: "Faltas", value: comparecimento.faltasTotal, icon: AlertCircle },
+        { label: "Sem presença lançada", value: semRegistro, icon: CalendarRange },
+        { label: "Comparecimento", value: formatPercent(comparecimento.taxa), icon: BadgePercent },
+      ]
+    : [
+        { label: "Faturamento", value: formatCurrency(faturamento), icon: DollarSign },
+        { label: "Atendimentos", value: totalAgendamentos, icon: ClipboardList },
+        { label: "Com venda", value: totalComVenda, icon: Sparkles },
+        { label: "Conversão", value: formatPercent(conversao), icon: BadgePercent },
+        { label: "Ticket médio", value: formatCurrency(ticketMedio), icon: TrendingUp },
+      ];
+
+  // Análise por dia no modo clínica: presença do dia em vez de venda.
+  const doDiaAtendidas = doDia.filter((a) => (a.Presenca ?? "").toLowerCase().includes("compareceu")).length;
+  const doDiaFaltas = doDia.filter(
+    (a) => a.Presenca === PRESENCA.FALTOU_JUSTIFICADA || a.Presenca === PRESENCA.FALTOU_NAO_JUSTIFICADA,
+  ).length;
+  const doDiaSemRegistro = doDia.length - doDiaAtendidas - doDiaFaltas;
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
@@ -424,6 +452,7 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
       </div>
 
       {/* Faturamento ao longo do tempo */}
+      {!clinico && (
       <div className="glass-card rounded-xl p-5">
         <div className="mb-4 flex items-center gap-2">
           <Target className="h-4 w-4 text-primary" />
@@ -449,6 +478,7 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
           </div>
         )}
       </div>
+      )}
 
       {/* Análise por dia */}
       <div className="glass-card rounded-xl p-5">
@@ -476,10 +506,21 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
         )}
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <DayStat label="Atendimentos" value={doDia.length} />
-          <DayStat label="Com venda" value={doDiaComVenda.length} highlight />
-          <DayStat label="Faturamento" value={formatCurrency(faturamentoDoDia)} highlight />
-          <DayStat label="Ticket médio" value={formatCurrency(ticketMedioDoDia)} highlight />
+          {clinico ? (
+            <>
+              <DayStat label="Agendadas" value={doDia.length} />
+              <DayStat label="Atendidas" value={doDiaAtendidas} highlight />
+              <DayStat label="Faltas" value={doDiaFaltas} />
+              <DayStat label="Sem presença lançada" value={doDiaSemRegistro} />
+            </>
+          ) : (
+            <>
+              <DayStat label="Atendimentos" value={doDia.length} />
+              <DayStat label="Com venda" value={doDiaComVenda.length} highlight />
+              <DayStat label="Faturamento" value={formatCurrency(faturamentoDoDia)} highlight />
+              <DayStat label="Ticket médio" value={formatCurrency(ticketMedioDoDia)} highlight />
+            </>
+          )}
         </div>
       </div>
 
@@ -495,7 +536,10 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
               {cfg?.presenca && <DayStat label="Taxa de comparecimento" value={formatPercent(comparecimento.taxa)} highlight />}
               {cfg?.presenca && <DayStat label="Faltas c/ justificativa" value={comparecimento.faltouJust} />}
               {cfg?.presenca && <DayStat label="Faltas s/ justificativa" value={comparecimento.faltouNao} />}
-              {cfg?.agendou && <DayStat label="Taxa de confirmação" value={formatPercent(confirmacaoAgendou.taxa)} highlight />}
+              {/* Sem nenhum Sim/Não lançado a taxa sairia 0%, como se ninguém confirmasse. */}
+              {cfg?.agendou && !clinico && confirmacaoAgendou.total > 0 && (
+                <DayStat label="Taxa de confirmação" value={formatPercent(confirmacaoAgendou.taxa)} highlight />
+              )}
             </div>
           </div>
 
@@ -631,6 +675,7 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
 
       {/* Charts grid */}
       <div className="grid gap-4 lg:grid-cols-2">
+        {!clinico && (
         <ChartCard
           title="Quem mais agendou"
           icon={UserCog}
@@ -639,16 +684,18 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
           minVariation={2}
           emptyHint="Cadastre 2+ responsáveis pelo agendamento para ver a distribuição"
         />
+        )}
         {/* Com uma profissional escolhida no filtro sobra 1 barra; exigir 2
             esconderia justamente o número dela. */}
         <ChartCard
-          title="Atendimentos por responsável"
+          title={clinico ? "Sessões agendadas por profissional" : "Atendimentos por responsável"}
           icon={Stethoscope}
           data={porAtendente}
           kind="bar"
           minVariation={profFiltro ? 1 : 2}
           emptyHint="Cadastre atendentes (botão acima) e atribua nos agendamentos para ver a distribuição"
         />
+        {!clinico && (
         <ChartCard
           title="Faturamento por responsável"
           icon={DollarSign}
@@ -657,6 +704,7 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
           valueFormatter={formatCurrency}
           emptyHint="Nenhuma venda registrada no período"
         />
+        )}
         <ChartCard
           title="Top procedimentos"
           icon={Sparkles}

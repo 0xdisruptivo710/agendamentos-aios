@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { addDays, addMonths, addWeeks, isToday, subDays, subMonths, subWeeks } from "date-fns";
 import { motion } from "framer-motion";
-import { AlertCircle, BarChart3, CalendarDays, CheckCircle, Loader2, Search, Users, X } from "lucide-react";
+import { AlertCircle, BarChart3, CalendarDays, CheckCircle, ClipboardCheck, Loader2, Search, UserCheck, Users, X } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,12 +14,15 @@ import { DayView } from "@/components/calendar/DayView";
 import { EventDetailDialog, type EventSuggestions } from "@/components/calendar/EventDetailDialog";
 import { MonthView } from "@/components/calendar/MonthView";
 import { ReportsView } from "@/components/calendar/ReportsView";
+import { PresencasPendentesPanel } from "@/components/calendar/PresencasPendentesPanel";
+import { pendentesDePresenca, DIAS_PENDENTES } from "@/components/calendar/PresencaRapida";
 import { UpcomingAppointmentsPanel } from "@/components/calendar/UpcomingAppointmentsPanel";
 import { WeekView } from "@/components/calendar/WeekView";
 import { useAgendamentos, type Agendamento } from "@/hooks/useAgendamentos";
 import { useAtendentes, useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useProcedimentos } from "@/hooks/useProcedimentos";
 import { useUnit } from "@/context/UnitContext";
+import { LEGENDA_COMPARECIMENTO, TONE_CHIP, deriveStatus } from "@/lib/agendamento-status";
 import { legendaCores, matchProfissional, normalizarTexto } from "@/lib/profissional-cores";
 import { cn } from "@/lib/utils";
 import { chaveNome } from "@/lib/relatorio-normaliza";
@@ -139,6 +142,26 @@ const UnitPanel = () => {
     return { total: agendamentos.length, today: today.length, confirmed: confirmed.length, pending: pending.length };
   }, [agendamentos]);
 
+  // Cartões do fluxo de comparecimento. Os de "Confirmados / Pendentes" saíam de
+  // `Confirmação`, que só diz se a linha nasceu pela automação do WhatsApp — o
+  // dono da clínica leu como "o paciente confirmou" e desconfiou do painel
+  // inteiro (19/11/2026). Aqui em cima fica o que é fato: quem veio hoje, quem
+  // faltou hoje e quantas consultas ainda estão sem registro.
+  const statsComparecimento = useMemo(() => {
+    const lista = agendamentos ?? [];
+    const now = new Date();
+    const doDia = lista.filter((a) => (a.parsedDate ? isToday(a.parsedDate) : false));
+    const presencaDe = (a: Agendamento) => (a.Presenca ?? "").toLowerCase();
+    return {
+      hoje: doDia.length,
+      compareceuHoje: doDia.filter((a) => presencaDe(a).includes("compareceu")).length,
+      faltouHoje: doDia.filter((a) => presencaDe(a).includes("falt")).length,
+      // Mesma janela do painel da direita: o cartão é a tarefa da semana, não o
+      // passivo histórico da base.
+      aMarcar: pendentesDePresenca(lista, now).length,
+    };
+  }, [agendamentos]);
+
   if (isLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
@@ -157,12 +180,19 @@ const UnitPanel = () => {
         )}
 
         <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-4">
-          {[
+          {(cfg?.comparecimento
+            ? [
+                { label: "Hoje", value: statsComparecimento.hoje, icon: Users, color: "text-primary", bg: "bg-secondary" },
+                { label: "Compareceram hoje", value: statsComparecimento.compareceuHoje, icon: UserCheck, color: "text-emerald-700", bg: "bg-emerald-500/10" },
+                { label: "Faltaram hoje", value: statsComparecimento.faltouHoje, icon: AlertCircle, color: "text-destructive", bg: "bg-destructive/10" },
+                { label: `A marcar (${DIAS_PENDENTES}d)`, value: statsComparecimento.aMarcar, icon: ClipboardCheck, color: "text-amber-600", bg: "bg-amber-400/10" },
+              ]
+            : [
             { label: "Total", value: stats.total, icon: CalendarDays, color: "text-primary", bg: "bg-secondary" },
             { label: "Hoje", value: stats.today, icon: Users, color: "text-primary", bg: "bg-secondary" },
             { label: "Confirmados", value: stats.confirmed, icon: CheckCircle, color: "text-primary", bg: "bg-secondary" },
             { label: "Pendentes", value: stats.pending, icon: AlertCircle, color: "text-muted-foreground", bg: "bg-muted" },
-          ].map((stat) => (
+          ]).map((stat) => (
             <div key={stat.label} className="glass-card flex items-center gap-3 rounded-xl px-5 py-4">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${stat.bg}`}>
                 <stat.icon className={`h-5 w-5 ${stat.color}`} />
@@ -206,6 +236,39 @@ const UnitPanel = () => {
               onManageProcedimentos={() => setProcedimentosOpen(true)}
               onManageFeriados={() => setFeriadosOpen(true)}
             />
+
+            {/* O que cada cor quer dizer. O Leo perguntou isso no grupo em
+                19/11: a agenda passa a responder sozinha. */}
+            {cfg?.comparecimento && (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                  Como ler a agenda
+                </span>
+                {LEGENDA_COMPARECIMENTO.map((l) => {
+                  const tone = deriveStatus(
+                    l.key === "compareceu"
+                      ? { Presenca: "Compareceu" }
+                      : l.key === "faltou"
+                        ? { Presenca: "Faltou (não justificada)" }
+                        : l.key === "aguardando"
+                          ? { Comparecimento_Perguntado_Em: "x" }
+                          : l.key === "a_marcar"
+                            ? { parsedDate: new Date(Date.now() - 24 * 3600 * 1000) }
+                            : { parsedDate: new Date(Date.now() + 24 * 3600 * 1000) },
+                    { comparecimento: true },
+                  ).tone;
+                  return (
+                    <span
+                      key={l.key}
+                      title={l.ajuda}
+                      className={cn("rounded-full px-2.5 py-1 text-[11px] font-semibold", TONE_CHIP[tone])}
+                    >
+                      {l.label}
+                    </span>
+                  );
+                })}
+              </div>
+            )}
 
             {(cfg?.busca || cfg?.filtroProfissional || legenda.length > 0) && (
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -294,7 +357,12 @@ const UnitPanel = () => {
                 {view === "day" && <DayView currentDate={currentDate} agendamentos={agendamentosVisiveis} onEventClick={handleEventClick} />}
               </motion.div>
 
-              <UpcomingAppointmentsPanel agendamentos={agendamentosVisiveis} onEventClick={handleEventClick} />
+              <div className="space-y-6">
+                {cfg?.comparecimento && (
+                  <PresencasPendentesPanel agendamentos={agendamentosVisiveis} onEventClick={handleEventClick} />
+                )}
+                <UpcomingAppointmentsPanel agendamentos={agendamentosVisiveis} onEventClick={handleEventClick} />
+              </div>
             </div>
           </TabsContent>
 

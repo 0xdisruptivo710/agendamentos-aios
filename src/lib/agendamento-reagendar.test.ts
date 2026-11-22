@@ -2,7 +2,9 @@ import { describe, it, expect } from "vitest";
 import { buildDataString, findFutureSiblings, sessoesFuturasDoPaciente, shiftSessao } from "./agendamento-reagendar";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 
-// Linha mínima para os testes (só os campos que os helpers leem).
+// Linha mínima para os testes (só os campos que os helpers leem). O cast no
+// fim é de propósito: a fixture não deve ter que crescer a cada coluna nova do
+// shape canônico (mesmo padrão de convenio.test.ts).
 function ag(partial: Partial<Agendamento> & { id: number }): Agendamento {
   return {
     created_at: "",
@@ -26,7 +28,7 @@ function ag(partial: Partial<Agendamento> & { id: number }): Agendamento {
     Presenca: null,
     Justificativa: null,
     ...partial,
-  };
+  } as Agendamento;
 }
 
 describe("buildDataString", () => {

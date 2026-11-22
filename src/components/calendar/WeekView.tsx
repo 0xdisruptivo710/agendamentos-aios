@@ -16,6 +16,7 @@ interface WeekViewProps {
 }
 
 const TONE_STYLE: Record<StatusTone, string> = {
+  presente: "border-emerald-500/50 bg-emerald-500/10",
   success: "border-green-400/50 bg-green-400/10",
   danger: "border-destructive/50 bg-destructive/10",
   warning: "border-amber-400/50 bg-amber-400/10",
@@ -26,6 +27,10 @@ const TONE_STYLE: Record<StatusTone, string> = {
 
 export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewProps) {
   const cores = useCoresProfissionais();
+  // Fluxo de comparecimento (OdontoCompany): o chip/cor do card fala de
+  // presença (compareceu, faltou, aguardando resposta do paciente), e não
+  // de "confirmado/pendente", que só dizia por onde a linha nasceu.
+  const comparecimento = !!useUnit().config?.comparecimento;
   const weekStart = startOfWeek(currentDate, { locale: ptBR });
   const weekEnd = endOfWeek(currentDate, { locale: ptBR });
   const days = eachDayOfInterval({ start: weekStart, end: weekEnd });
@@ -67,7 +72,7 @@ export function WeekView({ currentDate, agendamentos, onEventClick }: WeekViewPr
                   key={event.id}
                   type="button"
                   onClick={() => onEventClick(event)}
-                  className={`w-full rounded-xl border p-2.5 text-left transition-all hover:brightness-95 ${TONE_STYLE[deriveStatus(event).tone]}`}
+                  className={`w-full rounded-xl border p-2.5 text-left transition-all hover:brightness-95 ${TONE_STYLE[deriveStatus(event, { comparecimento }).tone]}`}
                 >
                   <p className="flex items-center gap-1.5 text-[11px] font-bold text-primary">
                     {prof && <span className={`h-2 w-2 shrink-0 rounded-full ${prof.dot}`} title={prof.key} />}

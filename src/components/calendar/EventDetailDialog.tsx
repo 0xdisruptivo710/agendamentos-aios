@@ -9,13 +9,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { User, Phone, CheckCircle, Clock, AlertCircle, Save, StickyNote, DollarSign, UserCog, Stethoscope, ClipboardList, Sparkles, CalendarCheck, CalendarX, UserCheck, Building2, Trash2 } from "lucide-react";
 import { motion } from "framer-motion";
 import type { Agendamento } from "@/hooks/useAgendamentos";
-import { useUpdateAgendamento, useDeleteAgendamento, useDeleteAgendamentos, useReagendarSessoes, useAtualizarTelefone } from "@/hooks/useAgendamentos";
+import { useUpdateAgendamento, useDeleteAgendamento, useDeleteAgendamentos, useReagendarSessoes, useAtualizarTelefone, LIMPA_NA_REMARCACAO } from "@/hooks/useAgendamentos";
 import { useCategorias, mergeCategorias } from "@/hooks/useCategorias";
 import { buildDataString, findFutureSiblings, samePatient, sessoesFuturasDoPaciente, shiftSessao } from "@/lib/agendamento-reagendar";
 import { normalizePhoneBR } from "@/lib/agendamento-create";
 import { motivoBloqueio } from "@/lib/agenda-bloqueios";
 import { useBloqueios } from "@/hooks/useFeriados";
 import { firePainelWebhook } from "@/lib/painel-webhook";
+import { notificaPresenca } from "@/lib/presenca-webhook";
+import { descreveComparecimento } from "@/lib/comparecimento-info";
 import { useUnit } from "@/context/UnitContext";
 import { ProfissionalField } from "@/components/calendar/ProfissionalField";
 import {
@@ -50,6 +52,7 @@ interface EventDetailDialogProps {
 }
 
 const TONE_ICON: Record<StatusTone, typeof CheckCircle> = {
+  presente: CheckCircle,
   success: CheckCircle,
   danger: AlertCircle,
   warning: Clock,
@@ -58,6 +61,7 @@ const TONE_ICON: Record<StatusTone, typeof CheckCircle> = {
 };
 
 const TONE_CHIP_STRONG: Record<StatusTone, string> = {
+  presente: "bg-emerald-500/10 text-emerald-700",
   success: "bg-green-400/10 text-green-500",
   danger: "bg-destructive/10 text-destructive",
   warning: "bg-amber-400/10 text-amber-500",
@@ -107,6 +111,10 @@ function Segmented({ value, options, onChange }: { value: string; options: SegOp
 export function EventDetailDialog({ event, open, onOpenChange, suggestions, agendamentos }: EventDetailDialogProps) {
   const unit = useUnit();
   const cfg = unit.config;
+  // Fluxo de comparecimento (OdontoCompany): o chip fala de presença, a ficha
+  // diz QUEM respondeu, "Paciente agendou?" sai de cena (a IA grava "IA V3"
+  // nessa coluna) e remarcar limpa o comparecimento da data antiga.
+  const comparecimento = !!cfg?.comparecimento;
   const [notes, setNotes] = useState("");
   const [valor, setValor] = useState<string>("");
   const [respAgendamento, setRespAgendamento] = useState("");
@@ -198,7 +206,7 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
   const categorias = mergeCategorias(cfg?.categorias ?? ["Avaliação", "Agendamento"], categoriasExtras);
   // Valor legado que saiu da lista (ex.: categoria removida) continua visível.
   if (tipo && !categorias.includes(tipo)) categorias.push(tipo);
-  const status = deriveStatus(event);
+  const status = deriveStatus(event, { comparecimento });
   const StatusIcon = TONE_ICON[status.tone];
   const parsedDate = event.parsedDate;
 
@@ -293,8 +301,21 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
           }
         }
         updates.Data = novaData;
+        // A linha é REAPROVEITADA na remarcação, então todo estado do
+        // atendimento anterior tem de sair junto com a data antiga: senão a
+        // falta velha aparece na consulta nova e o bot nunca pergunta de novo
+        // (o cron dele filtra Presenca is null AND Perguntado_Em is null).
+        // A data VENCE a presença digitada no mesmo Salvar: remarcar é dizer
+        // que aquela consulta não aconteceu naquele horário.
+        if (comparecimento) Object.assign(updates, LIMPA_NA_REMARCACAO);
       }
+      const limpouComparecimento = !!dataAlterada && comparecimento;
       await updateMutation.mutateAsync({ id: event.id, updates });
+      if (limpouComparecimento) {
+        setPresenca("");
+        setJustificativa("");
+        presencaNotificada.current = null;
+      }
 
       // Presença via n8n: dispara só quando a presença MUDOU para um valor ainda
       // não notificado — salvar de novo com a mesma presença não reenvia nada.
@@ -303,22 +324,8 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
       //   webhookPresencaCard -> card do paciente no funil do WTS
       // Separados de propósito: falha na sincronização do card não pode atrasar
       // nem impedir a mensagem ao paciente.
-      if (cfg?.presenca && presenca && presenca !== presencaNotificada.current) {
-        const payload = {
-          evento: "presenca",
-          unidade: unit.slug,
-          // Quem resolve a unidade no WTS é o canal, não o slug: a agenda geral
-          // atende as duas clínicas.
-          canal: event.Canal,
-          presenca,
-          nome: event.Nome,
-          telefone: event["Número"],
-          // Data EFETIVA: se o mesmo Salvar também remarcou, a linha no banco já
-          // é a nova, e é por (Número, Data) que o n8n acha a linha de volta.
-          data: updates.Data ?? event.Data,
-        };
-        firePainelWebhook(cfg?.webhookPresenca, payload);
-        firePainelWebhook(cfg?.webhookPresencaCard, payload);
+      if (cfg?.presenca && presenca && !limpouComparecimento && presenca !== presencaNotificada.current) {
+        notificaPresenca(cfg, unit.slug, event, presenca, updates.Data ?? event.Data);
         presencaNotificada.current = presenca;
       }
 
@@ -336,9 +343,10 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
         // propagação — e a recepção é avisada de quantas ficaram para trás.
         const pares = candidatos.filter((p) => !motivoBloqueio(p.para, bloqueios));
         const bloqueadasFuturas = candidatos.length - pares.length;
-        const { updated, conflicts } = await reagendarMutation.mutateAsync(
-          pares.map((p) => ({ id: p.id, data: p.para })),
-        );
+        const { updated, conflicts } = await reagendarMutation.mutateAsync({
+          items: pares.map((p) => ({ id: p.id, data: p.para })),
+          limpaComparecimento: comparecimento,
+        });
         // Espelho Infosoft: as futuras só entram quando TODAS moveram — com
         // conflito não dá pra saber qual ficou, e mover errado no ERP é pior
         // que a recepção resolver a pendência aqui.
@@ -639,6 +647,23 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
               <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
                 <UserCheck className="h-3.5 w-3.5 text-green-400" /> Comparecimento
               </Label>
+              {/* De onde vem a informação: resposta do PACIENTE (bot) ou registro
+                  da recepção. Sem isso a clínica não confia na agenda e vai
+                  conferir presença no outro sistema. */}
+              {comparecimento && (() => {
+                const info = descreveComparecimento(event);
+                const cls =
+                  info.tom === "success"
+                    ? "border-green-500/40 bg-green-500/10 text-green-600"
+                    : info.tom === "warning"
+                      ? "border-amber-500/40 bg-amber-500/10 text-amber-600"
+                      : "border-border bg-muted/40 text-muted-foreground";
+                return (
+                  <p className={`rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold ${cls}`}>
+                    {info.texto}
+                  </p>
+                );
+              })()}
               <Segmented value={presenca} options={presencaOptions} onChange={setPresenca} />
               {presenca === PRESENCA.FALTOU_JUSTIFICADA && (
                 <Textarea
@@ -682,10 +707,13 @@ export function EventDetailDialog({ event, open, onOpenChange, suggestions, agen
             </div>
           </div>
 
-          {/* Paciente agendou? + Origem (unidades com config.agendou / config.origem) */}
-          {(cfg?.agendou || cfg?.origem) && (
+          {/* Paciente agendou? + Origem (unidades com config.agendou / config.origem).
+              No fluxo de comparecimento o "Paciente agendou?" não aparece: a IA
+              grava "IA V3" nessa coluna, então ela não responde mais "o paciente
+              confirmou" e só gerava dúvida na recepção. */}
+          {((cfg?.agendou && !comparecimento) || cfg?.origem) && (
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {cfg?.agendou && (
+              {cfg?.agendou && !comparecimento && (
                 <div className="space-y-1.5">
                   <Label className="flex items-center gap-2 text-xs font-semibold text-foreground">
                     <CalendarCheck className="h-3.5 w-3.5 text-green-400" /> Paciente agendou?

@@ -6,6 +6,7 @@ import { Clock3, Sparkles, StickyNote, UserRound } from "lucide-react";
 import type { Agendamento } from "@/hooks/useAgendamentos";
 import { formatAgendamentoTime, isUpcomingAgendamento } from "@/lib/agendamento-date";
 import { corDoProfissional } from "@/lib/profissional-cores";
+import { deriveStatus } from "@/lib/agendamento-status";
 import { useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useUnit } from "@/context/UnitContext";
 
@@ -16,6 +17,10 @@ interface UpcomingAppointmentsPanelProps {
 
 export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: UpcomingAppointmentsPanelProps) {
   const cores = useCoresProfissionais();
+  // No fluxo de comparecimento esta linha mostrava `Confirmação` crua ("OK") ou
+  // "Pendente de confirmação" — a frase que fez a clínica achar que o paciente
+  // não tinha confirmado. Passa a mostrar o mesmo status da agenda.
+  const comparecimento = !!useUnit().config?.comparecimento;
   const upcoming = useMemo(
     () => agendamentos.filter((item) => isUpcomingAgendamento(item.parsedDate)).slice(0, 10),
     [agendamentos],
@@ -66,7 +71,11 @@ export function UpcomingAppointmentsPanel({ agendamentos, onEventClick }: Upcomi
 
                 <div className="mt-3 flex items-center gap-2 text-xs text-muted-foreground">
                   <Clock3 className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>{event.Confirmação || "Pendente de confirmação"}</span>
+                  <span>
+                    {comparecimento
+                      ? deriveStatus(event, { comparecimento: true }).label
+                      : event.Confirmação || "Pendente de confirmação"}
+                  </span>
                 </div>
 
                 <div className="mt-2 flex items-start gap-2 text-xs text-muted-foreground">

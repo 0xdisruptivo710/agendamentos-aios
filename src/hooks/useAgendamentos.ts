@@ -32,6 +32,13 @@ export interface Agendamento {
   Origem: string | null;         // "Convênio"/"Particular"
   Presenca: string | null;       // "Compareceu"/"Faltou (justificada)"/"Faltou (não justificada)"
   Justificativa: string | null;  // texto livre da falta justificada
+  // Bot de comparecimento (só OdontoCompany hoje — config.comparecimento). Quem
+  // escreve é o n8n: o cron pergunta ao paciente 1h depois da consulta e a
+  // resposta dele volta pelos webhooks SIM/NÃO. O painel só LÊ (para mostrar
+  // quem está sem resposta) e LIMPA (ao remarcar).
+  Comparecimento_Perguntado_Em: string | null;  // ISO: quando o bot perguntou
+  Comparecimento_Resposta: string | null;       // "sim" | "nao" (resposta do PACIENTE)
+  Comparecimento_Respondido_Em: string | null;  // ISO: quando ele respondeu
   // Número WhatsApp da unidade (só nas tabelas multi-unidade, hoje OdontoCompany).
   // Somente leitura: quem escreve é o DEFAULT da view por unidade. É o que
   // identifica a unidade nos webhooks — o slug não serve, porque a agenda geral
@@ -94,6 +101,9 @@ function fromRow(row: Record<string, any>): Agendamento {
     Origem: row["Origem"] ?? null,
     Presenca: row["Presenca"] ?? null,
     Justificativa: row["Justificativa"] ?? null,
+    Comparecimento_Perguntado_Em: row["Comparecimento_Perguntado_Em"] ?? null,
+    Comparecimento_Resposta: row["Comparecimento_Resposta"] ?? null,
+    Comparecimento_Respondido_Em: row["Comparecimento_Respondido_Em"] ?? null,
     Canal: row["Canal"] ?? null,
     CPF: row["CPF"] ?? null,
     Nascimento: row["Nascimento"] ?? null,
@@ -124,8 +134,30 @@ function toRow(updates: Partial<Agendamento>, respStyle: RespStyle): Record<stri
   if ("Origem" in updates) row["Origem"] = updates.Origem;
   if ("Presenca" in updates) row["Presenca"] = updates.Presenca;
   if ("Justificativa" in updates) row["Justificativa"] = updates.Justificativa;
+  // Comparecimento: o painel só LIMPA (null) na remarcação — nunca inventa
+  // resposta de paciente. Só entra no update quando a chave vem explícita, então
+  // as tabelas que não têm essas colunas nunca as recebem.
+  if ("Comparecimento_Perguntado_Em" in updates) row["Comparecimento_Perguntado_Em"] = updates.Comparecimento_Perguntado_Em;
+  if ("Comparecimento_Resposta" in updates) row["Comparecimento_Resposta"] = updates.Comparecimento_Resposta;
+  if ("Comparecimento_Respondido_Em" in updates) row["Comparecimento_Respondido_Em"] = updates.Comparecimento_Respondido_Em;
   return row;
 }
+
+// Campos de "estado do atendimento anterior" que PRECISAM ser limpos quando a
+// linha troca de data. A remarcação reaproveita a MESMA linha, então sem isto a
+// presença/falta e a pergunta do bot do horário antigo viajam para a data nova:
+// em 19/11/2026 um paciente remarcado nunca mais era perguntado pelo bot (o cron
+// filtra Presenca is null AND Comparecimento_Perguntado_Em is null) e aparecia
+// faltoso ANTES da consulta acontecer. Os dois nós de remarcação do n8n já
+// limpam; isto é o mesmo para a remarcação feita DENTRO do painel.
+// Só vale em unidades com config.comparecimento.
+export const LIMPA_NA_REMARCACAO: Partial<Agendamento> = {
+  Presenca: null,
+  Justificativa: null,
+  Comparecimento_Perguntado_Em: null,
+  Comparecimento_Resposta: null,
+  Comparecimento_Respondido_Em: null,
+};
 
 // O PostgREST corta a resposta em 1000 linhas por request (comprovado:
 // Content-Range 0-999/4731 na Fisio Vida). Sem paginação, tabelas grandes
@@ -273,14 +305,20 @@ export function useReagendarSessoes() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async (items: { id: number; data: string }[]) => {
+    // `limpaComparecimento`: mover a sessão também apaga presença/comparecimento
+    // da data antiga (unidades com config.comparecimento).
+    mutationFn: async ({ items, limpaComparecimento }: {
+      items: { id: number; data: string }[];
+      limpaComparecimento?: boolean;
+    }) => {
+      const limpeza = limpaComparecimento ? toRow(LIMPA_NA_REMARCACAO, unit.respStyle) : {};
       let updated = 0;
       let conflicts = 0;
       let lastError: string | null = null;
       for (const item of items) {
         const { error } = await supabase
           .from(unit.table)
-          .update({ Data: item.data })
+          .update({ Data: item.data, ...limpeza })
           .eq("id", item.id);
         if (!error) {
           updated++;

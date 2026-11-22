@@ -21,6 +21,7 @@ import type { Agendamento } from "@/hooks/useAgendamentos";
 import { dayKeyFromDate } from "@/lib/agendamento-date";
 import { useUnit } from "@/context/UnitContext";
 import { PRESENCA } from "@/lib/agendamento-status";
+import { resumoSemanal, semanalParaCsv } from "@/lib/comparecimento-semanal";
 import {
   CONVENIO_A_IDENTIFICAR, CONVENIO_SEM_INFO,
   cruzadaParaCsv, cruzarProfissionalConvenio, derivarConvenios,
@@ -236,6 +237,44 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
       data,
     };
   }, [filtered]);
+
+  // Fechamento semanal compareceu x faltou (config.comparecimento). Roda sobre
+  // `filtered`, então respeita o período e os filtros escolhidos acima.
+  const semanal = useMemo(
+    () => (cfg?.comparecimento ? resumoSemanal(filtered, range) : []),
+    [cfg?.comparecimento, filtered, range],
+  );
+  const semanalTotal = useMemo(() => {
+    const t = semanal.reduce(
+      (acc, l) => ({
+        consultas: acc.consultas + l.consultas,
+        compareceu: acc.compareceu + l.compareceu,
+        faltou: acc.faltou + l.faltou,
+        semRegistro: acc.semRegistro + l.semRegistro,
+        aAcontecer: acc.aAcontecer + l.aAcontecer,
+      }),
+      { consultas: 0, compareceu: 0, faltou: 0, semRegistro: 0, aAcontecer: 0 },
+    );
+    const resolvidas = t.compareceu + t.faltou;
+    return { ...t, taxa: resolvidas > 0 ? (t.compareceu / resolvidas) * 100 : null };
+  }, [semanal]);
+
+  const baixarSemanal = () => {
+    const csv = semanalParaCsv(semanal);
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `comparecimento-por-semana_${from}_a_${to}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  // Perguntados pelo bot que ainda não responderam, no período: é a fila que a
+  // recepção fecha à mão (os botões rápidos da agenda).
+  const aguardandoResposta = useMemo(
+    () => filtered.filter((a) => !a.Presenca && !!a.Comparecimento_Perguntado_Em).length,
+    [filtered],
+  );
 
   const origemData = useMemo(() => countBy(filtered, (a) => a.Origem).sort((a, b) => b.value - a.value), [filtered]);
 
@@ -536,8 +575,10 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
               {cfg?.presenca && <DayStat label="Taxa de comparecimento" value={formatPercent(comparecimento.taxa)} highlight />}
               {cfg?.presenca && <DayStat label="Faltas c/ justificativa" value={comparecimento.faltouJust} />}
               {cfg?.presenca && <DayStat label="Faltas s/ justificativa" value={comparecimento.faltouNao} />}
+              {cfg?.comparecimento && <DayStat label="Aguardando resposta do paciente" value={aguardandoResposta} />}
+              {cfg?.comparecimento && <DayStat label="Sem presença lançada" value={semRegistro} />}
               {/* Sem nenhum Sim/Não lançado a taxa sairia 0%, como se ninguém confirmasse. */}
-              {cfg?.agendou && !clinico && confirmacaoAgendou.total > 0 && (
+              {cfg?.agendou && !clinico && !cfg?.comparecimento && confirmacaoAgendou.total > 0 && (
                 <DayStat label="Taxa de confirmação" value={formatPercent(confirmacaoAgendou.taxa)} highlight />
               )}
             </div>
@@ -566,6 +607,78 @@ export function ReportsView({ agendamentos }: ReportsViewProps) {
               />
             )}
           </div>
+
+          {/* Fechamento por semana (config.comparecimento). O dono pediu em
+              19/11 para acompanhar compareceu x faltou semana a semana e saber
+              em quem a clínica tem de ir atrás. "Sem registro" fica numa coluna
+              própria de propósito: não é falta, é presença que ninguém lançou. */}
+          {cfg?.comparecimento && (
+            <div className="glass-card space-y-4 rounded-xl p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <CalendarRange className="h-4 w-4 text-primary" />
+                    <h3 className="text-base font-medium text-foreground">Comparecimento por semana</h3>
+                  </div>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Semana de segunda a domingo, no período escolhido acima. Cancelados ficam fora;
+                    consultas que ainda vão acontecer entram em "Consultas" mas não contam na taxa.
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={baixarSemanal} disabled={!semanal.length}>
+                  <Download className="mr-1.5 h-4 w-4" /> CSV
+                </Button>
+              </div>
+
+              {semanal.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Nenhuma consulta no período escolhido.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Semana</TableHead>
+                        <TableHead className="text-right">Consultas</TableHead>
+                        <TableHead className="text-right">Compareceu</TableHead>
+                        <TableHead className="text-right">Faltou</TableHead>
+                        <TableHead className="text-right">Sem registro</TableHead>
+                        <TableHead className="text-right">A acontecer</TableHead>
+                        <TableHead className="text-right">Taxa</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {semanal.map((l) => (
+                        <TableRow key={l.inicio.toISOString()}>
+                          <TableCell className="font-medium">{l.label}</TableCell>
+                          <TableCell className="text-right">{l.consultas}</TableCell>
+                          <TableCell className="text-right font-semibold text-emerald-700">{l.compareceu}</TableCell>
+                          <TableCell className="text-right font-semibold text-destructive">{l.faltou}</TableCell>
+                          <TableCell className="text-right font-semibold text-amber-600">{l.semRegistro}</TableCell>
+                          <TableCell className="text-right text-muted-foreground">{l.aAcontecer}</TableCell>
+                          <TableCell className="text-right font-semibold">
+                            {l.taxa == null ? "—" : formatPercent(l.taxa)}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                    <TableFooter>
+                      <TableRow>
+                        <TableCell className="font-semibold">Total</TableCell>
+                        <TableCell className="text-right font-semibold">{semanalTotal.consultas}</TableCell>
+                        <TableCell className="text-right font-semibold text-emerald-700">{semanalTotal.compareceu}</TableCell>
+                        <TableCell className="text-right font-semibold text-destructive">{semanalTotal.faltou}</TableCell>
+                        <TableCell className="text-right font-semibold text-amber-600">{semanalTotal.semRegistro}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">{semanalTotal.aAcontecer}</TableCell>
+                        <TableCell className="text-right font-semibold">
+                          {semanalTotal.taxa == null ? "—" : formatPercent(semanalTotal.taxa)}
+                        </TableCell>
+                      </TableRow>
+                    </TableFooter>
+                  </Table>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 

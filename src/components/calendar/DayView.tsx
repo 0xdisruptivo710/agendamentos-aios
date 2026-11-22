@@ -9,6 +9,7 @@ import { deriveStatus, TONE_BORDER, type StatusTone } from "@/lib/agendamento-st
 import { corDoProfissional } from "@/lib/profissional-cores";
 import { useCoresProfissionais } from "@/hooks/useAtendentes";
 import { useUnit } from "@/context/UnitContext";
+import { PresencaRapida, precisaMarcarPresenca } from "@/components/calendar/PresencaRapida";
 
 interface DayViewProps {
   currentDate: Date;
@@ -17,6 +18,7 @@ interface DayViewProps {
 }
 
 const TONE_ICON: Record<StatusTone, { Icon: typeof Clock; className: string }> = {
+  presente: { Icon: CheckCircle, className: "text-emerald-600" },
   success: { Icon: CheckCircle, className: "text-green-500" },
   danger: { Icon: AlertCircle, className: "text-destructive" },
   warning: { Icon: AlertCircle, className: "text-amber-500" },
@@ -26,6 +28,9 @@ const TONE_ICON: Record<StatusTone, { Icon: typeof Clock; className: string }> =
 
 export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProps) {
   const cores = useCoresProfissionais();
+  // Fluxo de comparecimento (OdontoCompany): o chip fala de presença, não de
+  // "confirmado/pendente", e o card ganha os dois botões de marcação rápida.
+  const comparecimento = !!useUnit().config?.comparecimento;
   const dayEvents = useMemo(() => {
     const key = dayKeyFromDate(currentDate);
     return agendamentos.filter((a) => a.dayKey === key);
@@ -49,18 +54,28 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
       ) : (
         <div className="space-y-3">
           {dayEvents.map((event, i) => {
-            const status = deriveStatus(event);
+            const status = deriveStatus(event, { comparecimento });
             const { Icon: StatusIcon, className: statusIconClass } = TONE_ICON[status.tone];
             const prof = corDoProfissional(cores, event.Responsavel_Atendimento);
             return (
-            <motion.button
+            // <div role="button"> e não <button>: a marcação rápida de presença
+            // mora DENTRO do card, e botão dentro de botão é HTML inválido
+            // (o navegador desaninha e o clique interno vira clique no card).
+            <motion.div
               key={event.id}
-              type="button"
+              role="button"
+              tabIndex={0}
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.05 }}
               onClick={() => onEventClick(event)}
-              className={`glass-card w-full rounded-2xl border p-4 text-left transition-all hover:bg-secondary/60 ${TONE_BORDER[status.tone]}`}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  onEventClick(event);
+                }
+              }}
+              className={`glass-card w-full cursor-pointer rounded-2xl border p-4 text-left transition-all hover:bg-secondary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 ${TONE_BORDER[status.tone]}`}
             >
               <div className="flex items-start justify-between gap-3">
                 <div className="flex-1">
@@ -97,12 +112,17 @@ export function DayView({ currentDate, agendamentos, onEventClick }: DayViewProp
                   </div>
                   {event.Anotações && <p className="mt-2 line-clamp-2 text-xs text-muted-foreground">{event.Anotações}</p>}
                 </div>
-                <div className={`flex items-center gap-2 text-[10px] ${statusIconClass}`}>
+                <div className={`flex shrink-0 items-center gap-2 text-[10px] ${statusIconClass}`}>
                   <StatusIcon className={`h-4 w-4 ${statusIconClass}`} />
                   <span>{status.label}</span>
                 </div>
               </div>
-            </motion.button>
+              {/* Fechar o comparecimento sem abrir a ficha: só aparece quando a
+                  consulta já passou e ninguém registrou nada. */}
+              {comparecimento && precisaMarcarPresenca(event) && (
+                <PresencaRapida event={event} className="mt-3" />
+              )}
+            </motion.div>
             );
           })}
         </div>

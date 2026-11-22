@@ -26,6 +26,7 @@ interface MonthViewProps {
 }
 
 const TONE_PILL: Record<StatusTone, string> = {
+  presente: "bg-emerald-500/12 text-emerald-700",
   success: "bg-green-400/12 text-green-600",
   danger: "bg-destructive/10 text-destructive",
   warning: "bg-amber-400/12 text-amber-600",
@@ -36,6 +37,10 @@ const TONE_PILL: Record<StatusTone, string> = {
 
 export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick }: MonthViewProps) {
   const cores = useCoresProfissionais();
+  // Fluxo de comparecimento (OdontoCompany): o chip/cor do card fala de
+  // presença (compareceu, faltou, aguardando resposta do paciente), e não
+  // de "confirmado/pendente", que só dizia por onde a linha nasceu.
+  const comparecimento = !!useUnit().config?.comparecimento;
   const monthStart = startOfMonth(currentDate);
   const monthEnd = endOfMonth(currentDate);
   const calStart = startOfWeek(monthStart, { locale: ptBR });
@@ -93,7 +98,7 @@ export function MonthView({ currentDate, agendamentos, onEventClick, onDayClick 
                       e.stopPropagation();
                       onEventClick(event);
                     }}
-                    className={`w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold leading-tight transition-all hover:brightness-95 ${TONE_PILL[deriveStatus(event).tone]}`}
+                    className={`w-full rounded-lg px-2 py-1.5 text-left text-[11px] font-semibold leading-tight transition-all hover:brightness-95 ${TONE_PILL[deriveStatus(event, { comparecimento }).tone]}`}
                   >
                     <span className="flex items-center gap-1">
                       {prof && <span className={`h-2 w-2 shrink-0 rounded-full ${prof.dot}`} title={prof.key} />}

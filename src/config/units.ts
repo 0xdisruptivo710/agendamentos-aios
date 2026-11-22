@@ -24,6 +24,23 @@ export interface UnitConfig {
   // o convênio está escrito no Procedimento — é derivado, não é campo.
   convenios?: RegraConvenio[];
   presenca?: boolean;    // registro de presença/falta (com/sem justificativa)
+  // Fluxo de COMPARECIMENTO (OdontoCompany, 20/11/2026). O bot pergunta ao
+  // paciente 1h depois da consulta e grava a resposta; ligar isto faz o painel
+  // trabalhar em cima disso:
+  //   - a agenda mostra só Compareceu / Faltou / Aguardando resposta / Marcar
+  //     presença / Agendado. Sai o par Confirmado×Pendente, que só dizia por
+  //     onde a linha nasceu (`Confirmação`=OK = automação do WhatsApp) e era
+  //     lido como "o paciente confirmou" — virou desconfiança no painel todo;
+  //   - presença em 1 clique no card do dia e no painel de pendências;
+  //   - mostra se quem respondeu foi o PACIENTE (bot) ou a recepção;
+  //   - LIMPA presença/comparecimento ao remarcar — a remarcação reaproveita a
+  //     mesma linha, então sem isso a falta da consulta antiga viaja para a
+  //     data nova e o bot nunca pergunta de novo;
+  //   - esconde "Paciente agendou?" (a IA grava "IA V3" nessa coluna) e soma o
+  //     quadro semanal compareceu × faltou nos Relatórios.
+  // Exige Comparecimento_Perguntado_Em/_Resposta/_Respondido_Em na tabela E nas
+  // views por unidade (migração odonto_views_expoem_comparecimento).
+  comparecimento?: boolean;
   criar?: boolean;       // botão "Novo agendamento" (+ recorrência) no painel
   excluir?: boolean;     // botão "Excluir" no modal de detalhes (DELETE no banco)
   // Botão "Excluir todos os futuros deste paciente" no modal: apaga TODAS as
@@ -120,6 +137,7 @@ const ODONTOCOMPANY_CONFIG: UnitConfig = {
   agendou: true,
   origem: true,
   presenca: true,
+  comparecimento: true,
   criar: true,
   excluir: true,
   atendentes: true,
